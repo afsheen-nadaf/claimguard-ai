@@ -1,0 +1,48 @@
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+.aws/
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.venv-ai/
+venv/
+env/
+
+# Machine learning models and caches
+models/
+*.keras
+*.h5
+*.pt
+*.pth
+*.onnx
+.cache/
+huggingface/
+transformers/
+
+# Node
+node_modules/
+dist/
+build/
+
+# AWS SAM
+.aws-sam/
+
+# IDE and operating system
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs and temporary files
+*.log
+*.tmp
+
+# Local test outputs
+image-forensics-test/results/
