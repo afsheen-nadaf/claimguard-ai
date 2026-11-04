@@ -7,6 +7,8 @@ import DuplicateResult from "../components/results/DuplicateResult";
 import OutlierResult from "../components/results/OutlierResult";
 import PolicyResult from "../components/results/PolicyResult";
 import SummaryPanel from "../components/results/SummaryPanel";
+import ImageForensicsSection from "../components/results/forensics/ImageForensicsSection";
+import RelevanceResult from "../components/results/RelevanceResult";
 import { CHECKS } from "../lib/checks";
 import { summarize } from "../lib/screening";
 import { formatBytes, formatDate, formatDateTime, formatINR } from "../lib/format";
@@ -72,7 +74,10 @@ export default function ResultsPage({ record, onRetry, navigate }) {
           check={record.checks.policy}
           onRetry={() => onRetry(record, "policy")}
         >
-          <PolicyResult result={record.checks.policy.result || {}} />
+          <PolicyResult
+            result={record.checks.policy.result || {}}
+            policyNumber={claim.policyNumber}
+          />
         </CheckCard>
 
         <CheckCard
@@ -100,6 +105,18 @@ export default function ResultsPage({ record, onRetry, navigate }) {
           <OutlierResult result={record.checks.outlier.result || { metrics: {}, details: [] }} claim={claim} />
         </CheckCard>
       </div>
+
+      <ImageForensicsSection
+        record={record}
+        check={record.checks.forensics}
+        onRetry={() => onRetry(record, "forensics")}
+      />
+
+      <RelevanceResult
+        record={record}
+        check={record.checks.relevance}
+        onRetry={() => onRetry(record, "relevance")}
+      />
 
       <div className="results-meta">
         <Card title="Submitted claim" icon="file">

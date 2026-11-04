@@ -51,11 +51,26 @@ export function useClaimDraft() {
     []
   );
 
+  
   const addFiles = useCallback(
     (fileList) => {
       const incoming = Array.from(fileList || []);
       const accepted = [];
       const messages = [];
+
+      const isImageFile = (file) => {
+        const ext = "." + (file.name.split(".").pop() || "").toLowerCase();
+        return (
+          ["image/jpeg", "image/png"].includes(file.type) ||
+          [".jpg", ".jpeg", ".png"].includes(ext)
+        );
+      };
+
+      const existingImageCount = files.filter(
+        (entry) => isImageFile(entry.file)
+      ).length;
+
+      let acceptedImageCount = 0;
 
       for (const file of incoming) {
         const ext =
@@ -64,6 +79,8 @@ export function useClaimDraft() {
         const typeOk =
           UPLOAD_RULES.allowedTypes.includes(file.type) ||
           UPLOAD_RULES.allowedExtensions.includes(ext);
+
+        const isImage = isImageFile(file);
 
         const same = (entry) =>
           entry.file.name === file.name &&
@@ -90,6 +107,14 @@ export function useClaimDraft() {
             tone: "error",
             text: `${file.name}: already added.`,
           });
+        } else if (
+          isImage &&
+          existingImageCount + acceptedImageCount >= 3
+        ) {
+          messages.push({
+            tone: "error",
+            text: `${file.name}: a maximum of 3 images is allowed per claim.`,
+          });
         } else {
           accepted.push({
             id: `f${++fileCounter}`,
@@ -100,6 +125,10 @@ export function useClaimDraft() {
             s3Key: null,
             contentType: null,
           });
+
+          if (isImage) {
+            acceptedImageCount++;
+          }
         }
       }
 
@@ -202,7 +231,8 @@ export function useClaimDraft() {
             (progress) =>
               patchFile(entry.id, {
                 progress,
-              })
+              }),
+            claimId
           );
 
           // Save the returned S3 key immediately.

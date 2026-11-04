@@ -6,15 +6,24 @@ import { CHECK_ORDER } from "../../lib/screening";
 const TONE_ICON = { info: "clock", success: "checkCircle", warning: "alert", danger: "xCircle" };
 
 function reasonFor(key, check) {
-  if (check.status === "running" || check.status === "idle") return { state: "running", text: "Running…" };
-  if (check.status === "error") return { state: "error", text: check.error };
+  if (!check || check.status === "running" || check.status === "idle") return { state: "running", text: "Running…" };
+  if (check.status === "error") return { state: "error", text: check.error || "Check failed" };
   const r = check.result;
+  if (!r) return { state: "inconclusive", text: "No result" };
   if (key === "policy") {
-    const flagText = r.flags.length ? `: ${r.flags.map((f) => f.text).join("; ")}` : "";
+    const flagText = r.flags?.length ? `: ${r.flags.map((f) => f.text).join("; ")}` : "";
     return { state: r.state, text: `${r.label}${r.state === "review" ? flagText : ""}` };
   }
   if (key === "duplicate") {
-    return { state: r.state, text: r.matches.length ? `${r.label} (${r.matches.length} match${r.matches.length === 1 ? "" : "es"})` : r.label };
+    const parts = [];
+    if (r.matches?.length) {
+      parts.push(`${r.matches.length} claim record match${r.matches.length === 1 ? "" : "es"}`);
+    }
+    if (r.imageMatches?.length) {
+      parts.push(`${r.imageMatches.length} visual image match${r.imageMatches.length === 1 ? "" : "es"}`);
+    }
+    const matchDetail = parts.length ? ` (${parts.join(", ")})` : "";
+    return { state: r.state, text: `${r.label}${matchDetail}` };
   }
   return { state: r.state, text: r.label };
 }
