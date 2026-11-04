@@ -43,6 +43,8 @@ Thumbs.db
 # Logs and temporary files
 *.log
 *.tmp
+*.zip
+*.pdf
 
-# Local test outputs
-image-forensics-test/results/
+# Local test outputs and scratchpad
+image-forensics-test/
