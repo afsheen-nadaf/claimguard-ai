@@ -1,0 +1,898 @@
+[
+  {
+    "documentId": "DOC-0001-FORM",
+    "claimId": "CG-2026-0001",
+    "documentType": "claim_form",
+    "s3Key": "reference/CG-2026-0001/claim_form.json",
+    "expectedFields": [
+      "claimType",
+      "policyNumber",
+      "incidentDate",
+      "claimAmountINR",
+      "location",
+      "incidentDescription"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0001-INV",
+    "claimId": "CG-2026-0001",
+    "documentType": "invoice",
+    "s3Key": "reference/CG-2026-0001/invoice.json",
+    "expectedFields": [
+      "invoiceNumber",
+      "providerName",
+      "incidentDate",
+      "claimAmountINR"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0002-FORM",
+    "claimId": "CG-2026-0002",
+    "documentType": "claim_form",
+    "s3Key": "reference/CG-2026-0002/claim_form.json",
+    "expectedFields": [
+      "claimType",
+      "policyNumber",
+      "incidentDate",
+      "claimAmountINR",
+      "location",
+      "incidentDescription"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0002-INV",
+    "claimId": "CG-2026-0002",
+    "documentType": "invoice",
+    "s3Key": "reference/CG-2026-0002/invoice.json",
+    "expectedFields": [
+      "invoiceNumber",
+      "providerName",
+      "incidentDate",
+      "claimAmountINR"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0003-FORM",
+    "claimId": "CG-2026-0003",
+    "documentType": "claim_form",
+    "s3Key": "reference/CG-2026-0003/claim_form.json",
+    "expectedFields": [
+      "claimType",
+      "policyNumber",
+      "incidentDate",
+      "claimAmountINR",
+      "location",
+      "incidentDescription"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0003-INV",
+    "claimId": "CG-2026-0003",
+    "documentType": "invoice",
+    "s3Key": "reference/CG-2026-0003/invoice.json",
+    "expectedFields": [
+      "invoiceNumber",
+      "providerName",
+      "incidentDate",
+      "claimAmountINR"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0004-FORM",
+    "claimId": "CG-2026-0004",
+    "documentType": "claim_form",
+    "s3Key": "reference/CG-2026-0004/claim_form.json",
+    "expectedFields": [
+      "claimType",
+      "policyNumber",
+      "incidentDate",
+      "claimAmountINR",
+      "location",
+      "incidentDescription"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0004-INV",
+    "claimId": "CG-2026-0004",
+    "documentType": "invoice",
+    "s3Key": "reference/CG-2026-0004/invoice.json",
+    "expectedFields": [
+      "invoiceNumber",
+      "providerName",
+      "incidentDate",
+      "claimAmountINR"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0005-FORM",
+    "claimId": "CG-2026-0005",
+    "documentType": "claim_form",
+    "s3Key": "reference/CG-2026-0005/claim_form.json",
+    "expectedFields": [
+      "claimType",
+      "policyNumber",
+      "incidentDate",
+      "claimAmountINR",
+      "location",
+      "incidentDescription"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0005-INV",
+    "claimId": "CG-2026-0005",
+    "documentType": "invoice",
+    "s3Key": "reference/CG-2026-0005/invoice.json",
+    "expectedFields": [
+      "invoiceNumber",
+      "providerName",
+      "incidentDate",
+      "claimAmountINR"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0006-FORM",
+    "claimId": "CG-2026-0006",
+    "documentType": "claim_form",
+    "s3Key": "reference/CG-2026-0006/claim_form.json",
+    "expectedFields": [
+      "claimType",
+      "policyNumber",
+      "incidentDate",
+      "claimAmountINR",
+      "location",
+      "incidentDescription"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0006-INV",
+    "claimId": "CG-2026-0006",
+    "documentType": "invoice",
+    "s3Key": "reference/CG-2026-0006/invoice.json",
+    "expectedFields": [
+      "invoiceNumber",
+      "providerName",
+      "incidentDate",
+      "claimAmountINR"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0007-FORM",
+    "claimId": "CG-2026-0007",
+    "documentType": "claim_form",
+    "s3Key": "reference/CG-2026-0007/claim_form.json",
+    "expectedFields": [
+      "claimType",
+      "policyNumber",
+      "incidentDate",
+      "claimAmountINR",
+      "location",
+      "incidentDescription"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0007-INV",
+    "claimId": "CG-2026-0007",
+    "documentType": "invoice",
+    "s3Key": "reference/CG-2026-0007/invoice.json",
+    "expectedFields": [
+      "invoiceNumber",
+      "providerName",
+      "incidentDate",
+      "claimAmountINR"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0008-FORM",
+    "claimId": "CG-2026-0008",
+    "documentType": "claim_form",
+    "s3Key": "reference/CG-2026-0008/claim_form.json",
+    "expectedFields": [
+      "claimType",
+      "policyNumber",
+      "incidentDate",
+      "claimAmountINR",
+      "location",
+      "incidentDescription"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0008-INV",
+    "claimId": "CG-2026-0008",
+    "documentType": "invoice",
+    "s3Key": "reference/CG-2026-0008/invoice.json",
+    "expectedFields": [
+      "invoiceNumber",
+      "providerName",
+      "incidentDate",
+      "claimAmountINR"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0009-FORM",
+    "claimId": "CG-2026-0009",
+    "documentType": "claim_form",
+    "s3Key": "reference/CG-2026-0009/claim_form.json",
+    "expectedFields": [
+      "claimType",
+      "policyNumber",
+      "incidentDate",
+      "claimAmountINR",
+      "location",
+      "incidentDescription"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0009-INV",
+    "claimId": "CG-2026-0009",
+    "documentType": "invoice",
+    "s3Key": "reference/CG-2026-0009/invoice.json",
+    "expectedFields": [
+      "invoiceNumber",
+      "providerName",
+      "incidentDate",
+      "claimAmountINR"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0010-FORM",
+    "claimId": "CG-2026-0010",
+    "documentType": "claim_form",
+    "s3Key": "reference/CG-2026-0010/claim_form.json",
+    "expectedFields": [
+      "claimType",
+      "policyNumber",
+      "incidentDate",
+      "claimAmountINR",
+      "location",
+      "incidentDescription"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0010-INV",
+    "claimId": "CG-2026-0010",
+    "documentType": "invoice",
+    "s3Key": "reference/CG-2026-0010/invoice.json",
+    "expectedFields": [
+      "invoiceNumber",
+      "providerName",
+      "incidentDate",
+      "claimAmountINR"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0011-FORM",
+    "claimId": "CG-2026-0011",
+    "documentType": "claim_form",
+    "s3Key": "reference/CG-2026-0011/claim_form.json",
+    "expectedFields": [
+      "claimType",
+      "policyNumber",
+      "incidentDate",
+      "claimAmountINR",
+      "location",
+      "incidentDescription"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0011-INV",
+    "claimId": "CG-2026-0011",
+    "documentType": "invoice",
+    "s3Key": "reference/CG-2026-0011/invoice.json",
+    "expectedFields": [
+      "invoiceNumber",
+      "providerName",
+      "incidentDate",
+      "claimAmountINR"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0012-FORM",
+    "claimId": "CG-2026-0012",
+    "documentType": "claim_form",
+    "s3Key": "reference/CG-2026-0012/claim_form.json",
+    "expectedFields": [
+      "claimType",
+      "policyNumber",
+      "incidentDate",
+      "claimAmountINR",
+      "location",
+      "incidentDescription"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0012-INV",
+    "claimId": "CG-2026-0012",
+    "documentType": "invoice",
+    "s3Key": "reference/CG-2026-0012/invoice.json",
+    "expectedFields": [
+      "invoiceNumber",
+      "providerName",
+      "incidentDate",
+      "claimAmountINR"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0013-FORM",
+    "claimId": "CG-2026-0013",
+    "documentType": "claim_form",
+    "s3Key": "reference/CG-2026-0013/claim_form.json",
+    "expectedFields": [
+      "claimType",
+      "policyNumber",
+      "incidentDate",
+      "claimAmountINR",
+      "location",
+      "incidentDescription"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0013-INV",
+    "claimId": "CG-2026-0013",
+    "documentType": "invoice",
+    "s3Key": "reference/CG-2026-0013/invoice.json",
+    "expectedFields": [
+      "invoiceNumber",
+      "providerName",
+      "incidentDate",
+      "claimAmountINR"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0014-FORM",
+    "claimId": "CG-2026-0014",
+    "documentType": "claim_form",
+    "s3Key": "reference/CG-2026-0014/claim_form.json",
+    "expectedFields": [
+      "claimType",
+      "policyNumber",
+      "incidentDate",
+      "claimAmountINR",
+      "location",
+      "incidentDescription"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0014-INV",
+    "claimId": "CG-2026-0014",
+    "documentType": "invoice",
+    "s3Key": "reference/CG-2026-0014/invoice.json",
+    "expectedFields": [
+      "invoiceNumber",
+      "providerName",
+      "incidentDate",
+      "claimAmountINR"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0015-FORM",
+    "claimId": "CG-2026-0015",
+    "documentType": "claim_form",
+    "s3Key": "reference/CG-2026-0015/claim_form.json",
+    "expectedFields": [
+      "claimType",
+      "policyNumber",
+      "incidentDate",
+      "claimAmountINR",
+      "location",
+      "incidentDescription"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0015-INV",
+    "claimId": "CG-2026-0015",
+    "documentType": "invoice",
+    "s3Key": "reference/CG-2026-0015/invoice.json",
+    "expectedFields": [
+      "invoiceNumber",
+      "providerName",
+      "incidentDate",
+      "claimAmountINR"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0016-FORM",
+    "claimId": "CG-2026-0016",
+    "documentType": "claim_form",
+    "s3Key": "reference/CG-2026-0016/claim_form.json",
+    "expectedFields": [
+      "claimType",
+      "policyNumber",
+      "incidentDate",
+      "claimAmountINR",
+      "location",
+      "incidentDescription"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0016-INV",
+    "claimId": "CG-2026-0016",
+    "documentType": "invoice",
+    "s3Key": "reference/CG-2026-0016/invoice.json",
+    "expectedFields": [
+      "invoiceNumber",
+      "providerName",
+      "incidentDate",
+      "claimAmountINR"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0017-FORM",
+    "claimId": "CG-2026-0017",
+    "documentType": "claim_form",
+    "s3Key": "reference/CG-2026-0017/claim_form.json",
+    "expectedFields": [
+      "claimType",
+      "policyNumber",
+      "incidentDate",
+      "claimAmountINR",
+      "location",
+      "incidentDescription"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0017-INV",
+    "claimId": "CG-2026-0017",
+    "documentType": "invoice",
+    "s3Key": "reference/CG-2026-0017/invoice.json",
+    "expectedFields": [
+      "invoiceNumber",
+      "providerName",
+      "incidentDate",
+      "claimAmountINR"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0018-FORM",
+    "claimId": "CG-2026-0018",
+    "documentType": "claim_form",
+    "s3Key": "reference/CG-2026-0018/claim_form.json",
+    "expectedFields": [
+      "claimType",
+      "policyNumber",
+      "incidentDate",
+      "claimAmountINR",
+      "location",
+      "incidentDescription"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0018-INV",
+    "claimId": "CG-2026-0018",
+    "documentType": "invoice",
+    "s3Key": "reference/CG-2026-0018/invoice.json",
+    "expectedFields": [
+      "invoiceNumber",
+      "providerName",
+      "incidentDate",
+      "claimAmountINR"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0019-FORM",
+    "claimId": "CG-2026-0019",
+    "documentType": "claim_form",
+    "s3Key": "reference/CG-2026-0019/claim_form.json",
+    "expectedFields": [
+      "claimType",
+      "policyNumber",
+      "incidentDate",
+      "claimAmountINR",
+      "location",
+      "incidentDescription"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0019-INV",
+    "claimId": "CG-2026-0019",
+    "documentType": "invoice",
+    "s3Key": "reference/CG-2026-0019/invoice.json",
+    "expectedFields": [
+      "invoiceNumber",
+      "providerName",
+      "incidentDate",
+      "claimAmountINR"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0020-FORM",
+    "claimId": "CG-2026-0020",
+    "documentType": "claim_form",
+    "s3Key": "reference/CG-2026-0020/claim_form.json",
+    "expectedFields": [
+      "claimType",
+      "policyNumber",
+      "incidentDate",
+      "claimAmountINR",
+      "location",
+      "incidentDescription"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0020-INV",
+    "claimId": "CG-2026-0020",
+    "documentType": "invoice",
+    "s3Key": "reference/CG-2026-0020/invoice.json",
+    "expectedFields": [
+      "invoiceNumber",
+      "providerName",
+      "incidentDate",
+      "claimAmountINR"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0021-FORM",
+    "claimId": "CG-2026-0021",
+    "documentType": "claim_form",
+    "s3Key": "reference/CG-2026-0021/claim_form.json",
+    "expectedFields": [
+      "claimType",
+      "policyNumber",
+      "incidentDate",
+      "claimAmountINR",
+      "location",
+      "incidentDescription"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0021-INV",
+    "claimId": "CG-2026-0021",
+    "documentType": "invoice",
+    "s3Key": "reference/CG-2026-0021/invoice.json",
+    "expectedFields": [
+      "invoiceNumber",
+      "providerName",
+      "incidentDate",
+      "claimAmountINR"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0022-FORM",
+    "claimId": "CG-2026-0022",
+    "documentType": "claim_form",
+    "s3Key": "reference/CG-2026-0022/claim_form.json",
+    "expectedFields": [
+      "claimType",
+      "policyNumber",
+      "incidentDate",
+      "claimAmountINR",
+      "location",
+      "incidentDescription"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0022-INV",
+    "claimId": "CG-2026-0022",
+    "documentType": "invoice",
+    "s3Key": "reference/CG-2026-0022/invoice.json",
+    "expectedFields": [
+      "invoiceNumber",
+      "providerName",
+      "incidentDate",
+      "claimAmountINR"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0023-FORM",
+    "claimId": "CG-2026-0023",
+    "documentType": "claim_form",
+    "s3Key": "reference/CG-2026-0023/claim_form.json",
+    "expectedFields": [
+      "claimType",
+      "policyNumber",
+      "incidentDate",
+      "claimAmountINR",
+      "location",
+      "incidentDescription"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0023-INV",
+    "claimId": "CG-2026-0023",
+    "documentType": "invoice",
+    "s3Key": "reference/CG-2026-0023/invoice.json",
+    "expectedFields": [
+      "invoiceNumber",
+      "providerName",
+      "incidentDate",
+      "claimAmountINR"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0024-FORM",
+    "claimId": "CG-2026-0024",
+    "documentType": "claim_form",
+    "s3Key": "reference/CG-2026-0024/claim_form.json",
+    "expectedFields": [
+      "claimType",
+      "policyNumber",
+      "incidentDate",
+      "claimAmountINR",
+      "location",
+      "incidentDescription"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0024-INV",
+    "claimId": "CG-2026-0024",
+    "documentType": "invoice",
+    "s3Key": "reference/CG-2026-0024/invoice.json",
+    "expectedFields": [
+      "invoiceNumber",
+      "providerName",
+      "incidentDate",
+      "claimAmountINR"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0025-FORM",
+    "claimId": "CG-2026-0025",
+    "documentType": "claim_form",
+    "s3Key": "reference/CG-2026-0025/claim_form.json",
+    "expectedFields": [
+      "claimType",
+      "policyNumber",
+      "incidentDate",
+      "claimAmountINR",
+      "location",
+      "incidentDescription"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0025-INV",
+    "claimId": "CG-2026-0025",
+    "documentType": "invoice",
+    "s3Key": "reference/CG-2026-0025/invoice.json",
+    "expectedFields": [
+      "invoiceNumber",
+      "providerName",
+      "incidentDate",
+      "claimAmountINR"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0026-FORM",
+    "claimId": "CG-2026-0026",
+    "documentType": "claim_form",
+    "s3Key": "reference/CG-2026-0026/claim_form.json",
+    "expectedFields": [
+      "claimType",
+      "policyNumber",
+      "incidentDate",
+      "claimAmountINR",
+      "location",
+      "incidentDescription"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0026-INV",
+    "claimId": "CG-2026-0026",
+    "documentType": "invoice",
+    "s3Key": "reference/CG-2026-0026/invoice.json",
+    "expectedFields": [
+      "invoiceNumber",
+      "providerName",
+      "incidentDate",
+      "claimAmountINR"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0027-FORM",
+    "claimId": "CG-2026-0027",
+    "documentType": "claim_form",
+    "s3Key": "reference/CG-2026-0027/claim_form.json",
+    "expectedFields": [
+      "claimType",
+      "policyNumber",
+      "incidentDate",
+      "claimAmountINR",
+      "location",
+      "incidentDescription"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0027-INV",
+    "claimId": "CG-2026-0027",
+    "documentType": "invoice",
+    "s3Key": "reference/CG-2026-0027/invoice.json",
+    "expectedFields": [
+      "invoiceNumber",
+      "providerName",
+      "incidentDate",
+      "claimAmountINR"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0028-FORM",
+    "claimId": "CG-2026-0028",
+    "documentType": "claim_form",
+    "s3Key": "reference/CG-2026-0028/claim_form.json",
+    "expectedFields": [
+      "claimType",
+      "policyNumber",
+      "incidentDate",
+      "claimAmountINR",
+      "location",
+      "incidentDescription"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0028-INV",
+    "claimId": "CG-2026-0028",
+    "documentType": "invoice",
+    "s3Key": "reference/CG-2026-0028/invoice.json",
+    "expectedFields": [
+      "invoiceNumber",
+      "providerName",
+      "incidentDate",
+      "claimAmountINR"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0029-FORM",
+    "claimId": "CG-2026-0029",
+    "documentType": "claim_form",
+    "s3Key": "reference/CG-2026-0029/claim_form.json",
+    "expectedFields": [
+      "claimType",
+      "policyNumber",
+      "incidentDate",
+      "claimAmountINR",
+      "location",
+      "incidentDescription"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0029-INV",
+    "claimId": "CG-2026-0029",
+    "documentType": "invoice",
+    "s3Key": "reference/CG-2026-0029/invoice.json",
+    "expectedFields": [
+      "invoiceNumber",
+      "providerName",
+      "incidentDate",
+      "claimAmountINR"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0030-FORM",
+    "claimId": "CG-2026-0030",
+    "documentType": "claim_form",
+    "s3Key": "reference/CG-2026-0030/claim_form.json",
+    "expectedFields": [
+      "claimType",
+      "policyNumber",
+      "incidentDate",
+      "claimAmountINR",
+      "location",
+      "incidentDescription"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0030-INV",
+    "claimId": "CG-2026-0030",
+    "documentType": "invoice",
+    "s3Key": "reference/CG-2026-0030/invoice.json",
+    "expectedFields": [
+      "invoiceNumber",
+      "providerName",
+      "incidentDate",
+      "claimAmountINR"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0031-FORM",
+    "claimId": "CG-2026-0031",
+    "documentType": "claim_form",
+    "s3Key": "reference/CG-2026-0031/claim_form.json",
+    "expectedFields": [
+      "claimType",
+      "policyNumber",
+      "incidentDate",
+      "claimAmountINR",
+      "location",
+      "incidentDescription"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0031-INV",
+    "claimId": "CG-2026-0031",
+    "documentType": "invoice",
+    "s3Key": "reference/CG-2026-0031/invoice.json",
+    "expectedFields": [
+      "invoiceNumber",
+      "providerName",
+      "incidentDate",
+      "claimAmountINR"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0032-FORM",
+    "claimId": "CG-2026-0032",
+    "documentType": "claim_form",
+    "s3Key": "reference/CG-2026-0032/claim_form.json",
+    "expectedFields": [
+      "claimType",
+      "policyNumber",
+      "incidentDate",
+      "claimAmountINR",
+      "location",
+      "incidentDescription"
+    ],
+    "synthetic": true
+  },
+  {
+    "documentId": "DOC-0032-INV",
+    "claimId": "CG-2026-0032",
+    "documentType": "invoice",
+    "s3Key": "reference/CG-2026-0032/invoice.json",
+    "expectedFields": [
+      "invoiceNumber",
+      "providerName",
+      "incidentDate",
+      "claimAmountINR"
+    ],
+    "synthetic": true
+  }
+]

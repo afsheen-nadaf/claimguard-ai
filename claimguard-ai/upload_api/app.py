@@ -1,6 +1,7 @@
 
 import json
 import os
+import re
 import uuid
 from urllib.parse import urlparse
 
@@ -21,6 +22,7 @@ ALLOWED_TYPES = {
 }
 MAX_FILE_SIZE = 10 * 1024 * 1024
 URL_EXPIRY_SECONDS = 300
+CLAIM_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
 def response(status_code, body):
@@ -59,8 +61,18 @@ def lambda_handler(event, context):
     if not 0 < file_size <= MAX_FILE_SIZE:
         return response(400, {"error": "File must be between 1 byte and 10 MB."})
 
+    claim_id = body.get("claimId")
+    if claim_id is not None:
+        if not isinstance(claim_id, str) or not CLAIM_ID_PATTERN.fullmatch(claim_id.strip()):
+            return response(400, {"error": "Invalid claimId format."})
+        claim_id = claim_id.strip()
+
     # Never use a client-supplied filename as the S3 key.
-    object_key = f"incoming/{uuid.uuid4().hex}{ALLOWED_TYPES[content_type]}"
+    unique_filename = f"{uuid.uuid4().hex}{ALLOWED_TYPES[content_type]}"
+    if claim_id:
+        object_key = f"incoming/{claim_id}/{unique_filename}"
+    else:
+        object_key = f"incoming/{unique_filename}"
 
     try:
         upload_url = s3.generate_presigned_url(

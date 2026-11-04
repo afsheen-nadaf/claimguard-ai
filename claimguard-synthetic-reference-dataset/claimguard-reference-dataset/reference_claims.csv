@@ -1,0 +1,33 @@
+claimId,claimType,policyNumber,incidentDate,claimAmountINR,location,incidentDescription,providerName,invoiceNumber,submissionDate,status,synthetic
+CG-2026-0001,Auto,POL-AU-100001,2026-01-05,125000,"Bengaluru, Karnataka",Rear-end collision,Metro Panel Works,INV-2026-5001,2026-01-09,REFERENCE,True
+CG-2026-0002,Property,POL-PR-100002,2026-01-08,28000,"Mysuru, Karnataka",Water leak,Harbor Home Repairs,INV-2026-5002,2026-01-18,REFERENCE,True
+CG-2026-0003,Health,POL-HE-100003,2026-01-11,24000,"Bengaluru, Karnataka",Outpatient treatment,Lakeside Clinic,INV-2026-5003,2026-01-15,REFERENCE,True
+CG-2026-0004,Travel,POL-TR-100004,2026-01-14,9000,"Chennai, Tamil Nadu",Lost personal item,Skyline Travel Desk,INV-2026-5004,2026-01-23,REFERENCE,True
+CG-2026-0005,Auto,POL-AU-100005,2026-01-17,32000,"Chennai, Tamil Nadu",Side-panel damage,Cedar Motors,INV-2026-5005,2026-01-25,REFERENCE,True
+CG-2026-0006,Property,POL-PR-100006,2026-01-20,145000,"Pune, Maharashtra",Water leak,Oakline Restoration,INV-2026-5006,2026-02-01,REFERENCE,True
+CG-2026-0007,Health,POL-HE-100007,2026-01-23,24000,"Pune, Maharashtra",Emergency treatment,Greenway Diagnostics,INV-2026-5007,2026-01-27,REFERENCE,True
+CG-2026-0008,Travel,POL-TR-100008,2026-01-26,16000,"Bengaluru, Karnataka",Delayed baggage,Horizon Travel Care,INV-2026-5008,2026-01-28,REFERENCE,True
+CG-2026-0009,Auto,POL-AU-100009,2026-01-29,47500,"Pune, Maharashtra",Minor intersection collision,Metro Panel Works,INV-2026-5009,2026-01-30,REFERENCE,True
+CG-2026-0010,Property,POL-PR-100010,2026-02-01,210000,"Hyderabad, Telangana",Roof tile damage,Harbor Home Repairs,INV-2026-5010,2026-02-08,REFERENCE,True
+CG-2026-0011,Health,POL-HE-100011,2026-02-04,2500,"Chennai, Tamil Nadu",Emergency treatment,CityCare Hospital,INV-2026-5011,2026-02-14,REFERENCE,True
+CG-2026-0012,Travel,POL-TR-100012,2026-02-07,9000,"Bengaluru, Karnataka",Delayed baggage,Wayfinder Assist,INV-2026-5012,2026-02-12,REFERENCE,True
+CG-2026-0013,Auto,POL-AU-100013,2026-02-10,18500,"Mysuru, Karnataka",Rear-end collision,Bluebird Auto Care,INV-2026-5013,2026-02-15,REFERENCE,True
+CG-2026-0014,Property,POL-PR-100014,2026-02-13,87000,"Pune, Maharashtra",Storm damage,BrightRoof Services,INV-2026-5014,2026-02-19,REFERENCE,True
+CG-2026-0015,Health,POL-HE-100015,2026-02-16,6800,"Pune, Maharashtra",Outpatient treatment,Greenway Diagnostics,INV-2026-5015,2026-02-25,REFERENCE,True
+CG-2026-0016,Travel,POL-TR-100016,2026-02-19,72000,"Mysuru, Karnataka",Trip interruption,Horizon Travel Care,INV-2026-5016,2026-02-26,REFERENCE,True
+CG-2026-0017,Auto,POL-AU-100017,2026-02-22,47500,"Chennai, Tamil Nadu",Parking-lot impact,Metro Panel Works,INV-2026-5017,2026-02-23,REFERENCE,True
+CG-2026-0018,Property,POL-PR-100018,2026-02-25,28000,"Bengaluru, Karnataka",Kitchen smoke damage,Civic Glass & Repair,INV-2026-5018,2026-03-02,REFERENCE,True
+CG-2026-0019,Health,POL-HE-100019,2026-02-28,2500,"Mysuru, Karnataka",Hospital stay,CityCare Hospital,INV-2026-5019,2026-03-04,REFERENCE,True
+CG-2026-0020,Travel,POL-TR-100020,2026-03-03,72000,"Hyderabad, Telangana",Cancelled flight,Horizon Travel Care,INV-2026-5020,2026-03-06,REFERENCE,True
+CG-2026-0021,Auto,POL-AU-100021,2026-03-06,47500,"Mysuru, Karnataka",Parking-lot impact,Metro Panel Works,INV-2026-5021,2026-03-18,REFERENCE,True
+CG-2026-0022,Property,POL-PR-100022,2026-03-09,145000,"Hyderabad, Telangana",Roof tile damage,Civic Glass & Repair,INV-2026-5022,2026-03-15,REFERENCE,True
+CG-2026-0023,Health,POL-HE-100023,2026-03-12,6800,"Mysuru, Karnataka",Hospital stay,Northview Medical,INV-2026-5023,2026-03-14,REFERENCE,True
+CG-2026-0024,Travel,POL-TR-100024,2026-03-15,3500,"Bengaluru, Karnataka",Trip interruption,Wayfinder Assist,INV-2026-5024,2026-03-26,REFERENCE,True
+CG-2026-0025,Auto,POL-AU-100025,2026-03-18,68000,"Chennai, Tamil Nadu",Rear-end collision,Bluebird Auto Care,INV-2026-5025,2026-03-25,REFERENCE,True
+CG-2026-0026,Property,POL-PR-100026,2026-03-21,145000,"Hyderabad, Telangana",Roof tile damage,BrightRoof Services,INV-2026-5026,2026-03-30,REFERENCE,True
+CG-2026-0027,Health,POL-HE-100027,2026-03-24,2500,"Bengaluru, Karnataka",Hospital stay,CityCare Hospital,INV-2026-5027,2026-04-04,REFERENCE,True
+CG-2026-0028,Travel,POL-TR-100028,2026-03-27,16000,"Bengaluru, Karnataka",Emergency lodging,Horizon Travel Care,INV-2026-5028,2026-03-30,REFERENCE,True
+CG-2026-0029,Auto,POL-AU-100029,2026-03-30,68000,"Bengaluru, Karnataka",Windshield damage,Cedar Motors,INV-2026-5029,2026-04-08,REFERENCE,True
+CG-2026-0030,Property,POL-PR-100030,2026-04-02,12000,"Pune, Maharashtra",Roof tile damage,Oakline Restoration,INV-2026-5030,2026-04-05,REFERENCE,True
+CG-2026-0031,Health,POL-HE-100031,2026-04-05,12500,"Mysuru, Karnataka",Hospital stay,Lakeside Clinic,INV-2026-5031,2026-04-15,REFERENCE,True
+CG-2026-0032,Travel,POL-TR-100032,2026-04-08,16000,"Hyderabad, Telangana",Delayed baggage,Skyline Travel Desk,INV-2026-5032,2026-04-14,REFERENCE,True
