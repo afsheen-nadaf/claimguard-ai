@@ -1,246 +1,811 @@
+
+
 AWSTemplateFormatVersion: '2010-09-09'
+
 Transform: AWS::Serverless-2016-10-31
+
+
+
 Description: >
+
   claimguard-ai
 
-  Sample SAM Template for claimguard-ai
+  AWS SAM infrastructure for ClaimGuard AI.
 
-# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+
+
 Globals:
+
   Function:
+
     Timeout: 3
 
     Tracing: Active
-    # You can add LoggingConfig parameters such as the Logformat, Log Group, and SystemLogLevel or ApplicationLogLevel. Learn more here https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-function.html#sam-function-loggingconfig.
+
     LoggingConfig:
+
       LogFormat: JSON
+
+
+
   Api:
+
     TracingEnabled: true
-    
+
     Cors:
+
       AllowMethods: "'OPTIONS,POST'"
+
       AllowHeaders: "'Content-Type'"
+
       AllowOrigin: "'http://localhost:5173'"
 
+
+
 Resources:
-  
+
+
+
+  # --------------------------------------------------
+
+  # S3 CLAIM DOCUMENT STORAGE
+
+  # --------------------------------------------------
+
+
+
   ClaimPacketsBucket:
+
     Type: AWS::S3::Bucket
+
     Properties:
+
       BucketEncryption:
+
         ServerSideEncryptionConfiguration:
+
           - ServerSideEncryptionByDefault:
+
               SSEAlgorithm: AES256
+
+
+
       PublicAccessBlockConfiguration:
+
         BlockPublicAcls: true
+
         IgnorePublicAcls: true
+
         BlockPublicPolicy: true
+
         RestrictPublicBuckets: true
+
+
+
       NotificationConfiguration:
+
         EventBridgeConfiguration:
+
           EventBridgeEnabled: true
+
+
+
       CorsConfiguration:
+
         CorsRules:
+
           - AllowedOrigins:
-              - http://localhost:5173
+
+              - 'http://localhost:5173'
+
             AllowedMethods:
+
               - PUT
+
             AllowedHeaders:
+
               - Content-Type
+
             ExposedHeaders:
+
               - ETag
+
             MaxAge: 3000
 
+
+
+  # --------------------------------------------------
+
+  # PRESIGNED UPLOAD LAMBDA
+
+  # --------------------------------------------------
+
+
+
   PresignUploadFunction:
+
+    Type: AWS::Serverless::Function
+
+    Properties:
+
+      CodeUri: upload_api/
+
+      Handler: app.lambda_handler
+
+      Runtime: python3.14
+
+      Timeout: 10
+
+
+
+      Environment:
+
+        Variables:
+
+          CLAIM_PACKETS_BUCKET: !Ref ClaimPacketsBucket
+
+
+
+      Policies:
+
+        - S3WritePolicy:
+
+            BucketName: !Ref ClaimPacketsBucket
+
+
+
+      Events:
+
+        CreateUploadUrl:
+
+          Type: Api
+
+          Properties:
+
+            Path: /uploads/presign
+
+            Method: post
+
+
+
+  # --------------------------------------------------
+
+  # REFERENCE CLAIMS TABLE
+
+  # --------------------------------------------------
+
+
+
+  ReferenceClaimsTable:
+
+    Type: AWS::DynamoDB::Table
+
+    Properties:
+
+      TableName: ClaimGuardReferenceClaims
+
+      BillingMode: PAY_PER_REQUEST
+
+
+
+      AttributeDefinitions:
+
+        - AttributeName: claimId
+
+          AttributeType: S
+
+        - AttributeName: policyNumber
+
+          AttributeType: S
+
+        - AttributeName: incidentDate
+
+          AttributeType: S
+
+
+
+      KeySchema:
+
+        - AttributeName: claimId
+
+          KeyType: HASH
+
+
+
+      GlobalSecondaryIndexes:
+
+        - IndexName: PolicyNumberIncidentDateIndex
+
+          KeySchema:
+
+            - AttributeName: policyNumber
+
+              KeyType: HASH
+
+            - AttributeName: incidentDate
+
+              KeyType: RANGE
+
+          Projection:
+
+            ProjectionType: ALL
+
+
+
+  # --------------------------------------------------
+
+  # REFERENCE POLICIES TABLE
+
+  # --------------------------------------------------
+
+
+
+  ReferencePoliciesTable:
+
+    Type: AWS::DynamoDB::Table
+
+    Properties:
+
+      TableName: ClaimGuardReferencePolicies
+
+      BillingMode: PAY_PER_REQUEST
+
+
+
+      AttributeDefinitions:
+
+        - AttributeName: policyNumber
+
+          AttributeType: S
+
+
+
+      KeySchema:
+
+        - AttributeName: policyNumber
+
+          KeyType: HASH
+
+
+
+  # --------------------------------------------------
+
+  # POLICY VALIDATION LAMBDA
+
+  # --------------------------------------------------
+
+
+
+  PolicyValidationFunction:
+
+    Type: AWS::Serverless::Function
+
+    Properties:
+
+      CodeUri: policy_validation_api/
+
+      Handler: app.lambda_handler
+
+      Runtime: python3.14
+
+      Timeout: 10
+
+
+
+      Environment:
+
+        Variables:
+
+          POLICIES_TABLE: !Ref ReferencePoliciesTable
+
+
+
+      Policies:
+
+        - DynamoDBReadPolicy:
+
+            TableName: !Ref ReferencePoliciesTable
+
+
+
+      Events:
+
+        ValidatePolicy:
+
+          Type: Api
+
+          Properties:
+
+            Path: /claims/validate
+
+            Method: POST
+
+
+
+  # --------------------------------------------------
+
+  # OPERATIONAL CLAIMS TABLE
+
+  # --------------------------------------------------
+
+
+
+  OperationalClaimsTable:
+
+    Type: AWS::DynamoDB::Table
+
+    Properties:
+
+      TableName: ClaimGuardOperationalClaims
+
+      BillingMode: PAY_PER_REQUEST
+
+
+
+      AttributeDefinitions:
+
+        - AttributeName: claimId
+
+          AttributeType: S
+
+        - AttributeName: policyNumber
+
+          AttributeType: S
+
+        - AttributeName: incidentDate
+
+          AttributeType: S
+
+
+
+      KeySchema:
+
+        - AttributeName: claimId
+
+          KeyType: HASH
+
+
+
+      GlobalSecondaryIndexes:
+
+        - IndexName: PolicyNumberIncidentDateIndex
+
+          KeySchema:
+
+            - AttributeName: policyNumber
+
+              KeyType: HASH
+
+            - AttributeName: incidentDate
+
+              KeyType: RANGE
+
+          Projection:
+
+            ProjectionType: ALL
+
+
+
+  # --------------------------------------------------
+
+  # IMAGE HASHES TABLE
+
+  # --------------------------------------------------
+
+
+
+  ImageHashesTable:
+
+    Type: AWS::DynamoDB::Table
+
+    Properties:
+
+      TableName: ClaimGuardImageHashes
+
+      BillingMode: PAY_PER_REQUEST
+
+
+
+      AttributeDefinitions:
+
+        - AttributeName: imageId
+
+          AttributeType: S
+
+        - AttributeName: claimId
+
+          AttributeType: S
+
+
+
+      KeySchema:
+
+        - AttributeName: imageId
+
+          KeyType: HASH
+
+
+
+      GlobalSecondaryIndexes:
+
+        - IndexName: ClaimIdIndex
+
+          KeySchema:
+
+            - AttributeName: claimId
+
+              KeyType: HASH
+
+          Projection:
+
+            ProjectionType: ALL
+
+
+
+  # --------------------------------------------------
+
+  # DUPLICATE CHECK LAMBDA
+
+  # --------------------------------------------------
+
+
+
+  DuplicateCheckFunction:
+
+    Type: AWS::Serverless::Function
+
+    Properties:
+
+      CodeUri: duplicate_check_api/
+
+      Handler: app.lambda_handler
+
+      Runtime: python3.14
+
+      Timeout: 30
+
+      MemorySize: 512
+
+
+
+      Environment:
+
+        Variables:
+
+          REFERENCE_CLAIMS_TABLE: !Ref ReferenceClaimsTable
+
+          OPERATIONAL_CLAIMS_TABLE: !Ref OperationalClaimsTable
+
+          IMAGE_HASHES_TABLE: !Ref ImageHashesTable
+
+          CLAIM_PACKETS_BUCKET: !Ref ClaimPacketsBucket
+
+
+
+      Policies:
+
+        - DynamoDBReadPolicy:
+
+            TableName: !Ref ReferenceClaimsTable
+
+
+
+        - DynamoDBCrudPolicy:
+
+            TableName: !Ref OperationalClaimsTable
+
+
+
+        - DynamoDBCrudPolicy:
+
+            TableName: !Ref ImageHashesTable
+
+
+
+        - Statement:
+
+            - Sid: ReadUploadedClaimImages
+
+              Effect: Allow
+
+              Action:
+
+                - s3:GetObject
+
+              Resource: !Sub "${ClaimPacketsBucket.Arn}/incoming/*"
+
+
+
+      Events:
+
+        CheckDuplicate:
+
+          Type: Api
+
+          Properties:
+
+            Path: /claims/check-duplicate
+
+            Method: POST
+
+
+
+  # --------------------------------------------------
+
+  # OUTLIER DETECTION LAMBDA
+
+  # --------------------------------------------------
+
+
+
+  OutlierCheckFunction:
+
+    Type: AWS::Serverless::Function
+
+    Properties:
+
+      CodeUri: outlier_check_api/
+
+      Handler: app.lambda_handler
+
+      Runtime: python3.14
+
+      Timeout: 10
+
+
+
+      Environment:
+
+        Variables:
+
+          REFERENCE_CLAIMS_TABLE: !Ref ReferenceClaimsTable
+
+
+
+      Policies:
+
+        - DynamoDBReadPolicy:
+
+            TableName: !Ref ReferenceClaimsTable
+
+
+
+      Events:
+
+        CheckOutlier:
+
+          Type: Api
+
+          Properties:
+
+            Path: /claims/check-outlier
+
+            Method: POST
+
+
+
+  # --------------------------------------------------
+
+  # DOCUMENT EXTRACTION LAMBDA
+
+  # --------------------------------------------------
+
+
+
+  DocumentExtractionFunction:
+
+    Type: AWS::Serverless::Function
+
+    Properties:
+
+      CodeUri: document_extraction_api/
+
+      Handler: app.lambda_handler
+
+      Runtime: python3.14
+
+      Timeout: 60
+
+      MemorySize: 512
+
+
+
+      Environment:
+
+        Variables:
+
+          CLAIM_PACKETS_BUCKET: !Ref ClaimPacketsBucket
+
+          BEDROCK_MODEL_ID: amazon.nova-lite-v1:0
+
+
+
+      Policies:
+
+        - Statement:
+
+            - Sid: ReadUploadedClaimDocuments
+
+              Effect: Allow
+
+              Action:
+
+                - s3:GetObject
+
+                - s3:GetObjectVersion
+
+              Resource: !Sub "${ClaimPacketsBucket.Arn}/incoming/*"
+
+
+
+            - Sid: InvokeNovaLite
+
+              Effect: Allow
+
+              Action:
+
+                - bedrock:InvokeModel
+
+              Resource: !Sub "arn:${AWS::Partition}:bedrock:${AWS::Region}::foundation-model/amazon.nova-lite-v1:0"
+
+
+
+      Events:
+
+        ExtractDocument:
+
+          Type: Api
+
+          Properties:
+
+            Path: /claims/extract-document
+
+            Method: POST
+
+
+
+# --------------------------------------------------
+
+# OUTPUTS
+
+# --------------------------------------------------
+
+
+
+  # --------------------------------------------------
+  # IMAGE FORENSICS LAMBDA
+  # --------------------------------------------------
+
+  ImageForensicsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: upload_api/
+      CodeUri: image_forensics_api/
       Handler: app.lambda_handler
       Runtime: python3.14
-      Timeout: 10
+      Timeout: 180
+      MemorySize: 2048
+      EphemeralStorage:
+        Size: 1024
+
       Environment:
         Variables:
           CLAIM_PACKETS_BUCKET: !Ref ClaimPacketsBucket
+          MAX_IMAGES_PER_CLAIM: "3"
+          MAX_IMAGE_BYTES: "10485760"
+          CORS_ORIGIN: "http://localhost:5173"
+          SMAUG_SPACE_ID: "afsheenadaf/claimguard-smaug"
+
       Policies:
-        - S3WritePolicy:
-            BucketName: !Ref ClaimPacketsBucket
+        - Statement:
+            - Sid: ReadUploadedImagesForForensics
+              Effect: Allow
+              Action:
+                - s3:GetObject
+              Resource: !Sub "${ClaimPacketsBucket.Arn}/incoming/*"
+
       Events:
-        CreateUploadUrl:
+        AnalyzeClaimImages:
           Type: Api
           Properties:
-            Path: /uploads/presign
-            Method: post
-  ReferenceClaimsTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: ClaimGuardReferenceClaims
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-        - AttributeName: claimId
-          AttributeType: S
-        - AttributeName: policyNumber
-          AttributeType: S
-        - AttributeName: incidentDate
-          AttributeType: S
-      KeySchema:
-        - AttributeName: claimId
-          KeyType: HASH
-      GlobalSecondaryIndexes:
-        - IndexName: PolicyNumberIncidentDateIndex
-          KeySchema:
-            - AttributeName: policyNumber
-              KeyType: HASH
-            - AttributeName: incidentDate
-              KeyType: RANGE
-          Projection:
-            ProjectionType: ALL
-  ReferencePoliciesTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: ClaimGuardReferencePolicies
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-        - AttributeName: policyNumber
-          AttributeType: S
-      KeySchema:
-        - AttributeName: policyNumber
-          KeyType: HASH
-  PolicyValidationFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: policy_validation_api/
-      Handler: app.lambda_handler
-      Runtime: python3.14
-      Timeout: 10
-      Environment:
-        Variables:
-          POLICIES_TABLE: !Ref ReferencePoliciesTable
-      Policies:
-        - DynamoDBReadPolicy:
-            TableName: !Ref ReferencePoliciesTable
-      Events:
-        ValidatePolicy:
-          Type: Api
-          Properties:
-            Path: /claims/validate
+            Path: /claims/analyze-image
             Method: POST
-  DuplicateCheckFunction:
+
+  # --------------------------------------------------
+  # EVIDENCE RELEVANCE LAMBDA
+  # --------------------------------------------------
+
+  EvidenceRelevanceFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: duplicate_check_api/
+      CodeUri: evidence_relevance_api/
       Handler: app.lambda_handler
       Runtime: python3.14
-      Timeout: 10
-      Environment:
-        Variables:
-          REFERENCE_CLAIMS_TABLE: !Ref ReferenceClaimsTable
-          OPERATIONAL_CLAIMS_TABLE: !Ref OperationalClaimsTable
-      Policies:
-        - DynamoDBReadPolicy:
-            TableName: !Ref ReferenceClaimsTable
-        - DynamoDBCrudPolicy:
-            TableName: !Ref OperationalClaimsTable
-      Events:
-        CheckDuplicate:
-          Type: Api
-          Properties:
-            Path: /claims/check-duplicate
-            Method: POST
-  OperationalClaimsTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: ClaimGuardOperationalClaims
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-        - AttributeName: claimId
-          AttributeType: S
-        - AttributeName: policyNumber
-          AttributeType: S
-        - AttributeName: incidentDate
-          AttributeType: S
-      KeySchema:
-        - AttributeName: claimId
-          KeyType: HASH
-      GlobalSecondaryIndexes:
-        - IndexName: PolicyNumberIncidentDateIndex
-          KeySchema:
-            - AttributeName: policyNumber
-              KeyType: HASH
-            - AttributeName: incidentDate
-              KeyType: RANGE
-          Projection:
-            ProjectionType: ALL
-  OutlierCheckFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: outlier_check_api/
-      Handler: app.lambda_handler
-      Runtime: python3.14
-      Timeout: 10
-      Environment:
-        Variables:
-          REFERENCE_CLAIMS_TABLE: !Ref ReferenceClaimsTable
-      Policies:
-        - DynamoDBReadPolicy:
-            TableName: !Ref ReferenceClaimsTable
-      Events:
-        CheckOutlier:
-          Type: Api
-          Properties:
-            Path: /claims/check-outlier
-            Method: POST
-  DocumentExtractionFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: document_extraction_api/
-      Handler: app.lambda_handler
-      Runtime: python3.14
-      Timeout: 60
+      Timeout: 29
       MemorySize: 512
+
       Environment:
         Variables:
           CLAIM_PACKETS_BUCKET: !Ref ClaimPacketsBucket
           BEDROCK_MODEL_ID: amazon.nova-lite-v1:0
+          CORS_ORIGIN: "http://localhost:5173"
+
       Policies:
         - Statement:
-            - Sid: ReadUploadedClaimDocuments
+            - Sid: ReadUploadedClaimEvidence
               Effect: Allow
               Action:
                 - s3:GetObject
-                - s3:GetObjectVersion
               Resource: !Sub "${ClaimPacketsBucket.Arn}/incoming/*"
-            - Sid: InvokeNovaLite
+
+            - Sid: InvokeNovaLiteDirect
               Effect: Allow
               Action:
                 - bedrock:InvokeModel
               Resource: !Sub "arn:${AWS::Partition}:bedrock:${AWS::Region}::foundation-model/amazon.nova-lite-v1:0"
+
       Events:
-        ExtractDocument:
+        ValidateEvidence:
           Type: Api
           Properties:
-            Path: /claims/extract-document
+            Path: /claims/validate-evidence
             Method: POST
 
-
-
 Outputs:
+
+  ValidateEvidenceApi:
+    Description: Endpoint for evidence relevance validation using Amazon Bedrock
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/Prod/claims/validate-evidence"
+
   ClaimPacketsBucketName:
+
     Description: S3 bucket for uploaded insurance claim packets
+
     Value: !Ref ClaimPacketsBucket
+
+
+
   PresignUploadApi:
+
     Description: Endpoint for requesting a short-lived S3 upload URL
+
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/Prod/uploads/presign"
+
+
+
   ReferenceClaimsTableName:
+
     Description: DynamoDB table for synthetic reference claims
+
     Value: !Ref ReferenceClaimsTable
+
+
+
   ReferencePoliciesTableName:
+
     Description: DynamoDB table for synthetic reference policies
+
     Value: !Ref ReferencePoliciesTable
+
+
+
   OperationalClaimsTableName:
+
     Description: DynamoDB table for operational claim submissions
+
     Value: !Ref OperationalClaimsTable
+
+
+
+  ImageHashesTableName:
+
+    Description: DynamoDB table for image fingerprints
+
+    Value: !Ref ImageHashesTable
+
+
+
   OutlierCheckApi:
+
     Description: Endpoint for statistical claim-amount outlier detection
+
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/Prod/claims/check-outlier"
-
-

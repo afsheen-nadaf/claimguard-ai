@@ -45,9 +45,15 @@ export default function NewClaimPage({ draft, onScreeningReady, navigate }) {
                 <li key={key}><Icon name={CHECKS[key].icon} size={17} /><span>{CHECKS[key].title}</span></li>
               ))}
             </ul>
-            <p className="muted small">
-              These checks receive the policy number, claim type, incident date and amount only. Location, description and documents are not analysed by any check.
-            </p>
+            
+<p className="muted small">
+  Policy validation and claim-amount outlier detection use
+  structured claim details. Duplicate-claim detection also
+  compares uploaded images against previously submitted
+  claims when image fingerprints are available.
+  All findings are indicators for human review.
+</p>
+
           </Card>
         </aside>
       </div>

@@ -1,0 +1,300 @@
+[
+  {
+    "testCaseId": "TC-001",
+    "claimId": "CG-2026-0001",
+    "baselineClaim": {
+      "claimId": "CG-2026-0001",
+      "claimType": "Auto",
+      "policyNumber": "POL-AU-100001",
+      "incidentDate": "2026-01-05",
+      "claimAmountINR": 125000,
+      "location": "Bengaluru, Karnataka",
+      "incidentDescription": "Rear-end collision",
+      "providerName": "Metro Panel Works",
+      "invoiceNumber": "INV-2026-5001",
+      "submissionDate": "2026-01-09",
+      "status": "REFERENCE",
+      "synthetic": true
+    },
+    "injectedIssues": [],
+    "expectedFlags": [],
+    "synthetic": true
+  },
+  {
+    "testCaseId": "TC-002",
+    "claimId": "CG-2026-0002",
+    "baselineClaim": {
+      "claimId": "CG-2026-0002",
+      "claimType": "Property",
+      "policyNumber": "POL-PR-100002",
+      "incidentDate": "2026-01-08",
+      "claimAmountINR": 28000,
+      "location": "Mysuru, Karnataka",
+      "incidentDescription": "Water leak",
+      "providerName": "Harbor Home Repairs",
+      "invoiceNumber": "INV-2026-5002",
+      "submissionDate": "2026-01-18",
+      "status": "REFERENCE",
+      "synthetic": true
+    },
+    "injectedIssues": [
+      "claim_form.incidentDate differs from invoice.incidentDate"
+    ],
+    "expectedFlags": [
+      "DATE_MISMATCH"
+    ],
+    "synthetic": true
+  },
+  {
+    "testCaseId": "TC-003",
+    "claimId": "CG-2026-0003",
+    "baselineClaim": {
+      "claimId": "CG-2026-0003",
+      "claimType": "Health",
+      "policyNumber": "POL-HE-100003",
+      "incidentDate": "2026-01-11",
+      "claimAmountINR": 24000,
+      "location": "Bengaluru, Karnataka",
+      "incidentDescription": "Outpatient treatment",
+      "providerName": "Lakeside Clinic",
+      "invoiceNumber": "INV-2026-5003",
+      "submissionDate": "2026-01-15",
+      "status": "REFERENCE",
+      "synthetic": true
+    },
+    "injectedIssues": [
+      "invoiceNumber reused from another claim"
+    ],
+    "expectedFlags": [
+      "POSSIBLE_DUPLICATE_INVOICE"
+    ],
+    "synthetic": true
+  },
+  {
+    "testCaseId": "TC-004",
+    "claimId": "CG-2026-0005",
+    "baselineClaim": {
+      "claimId": "CG-2026-0005",
+      "claimType": "Auto",
+      "policyNumber": "POL-AU-100005",
+      "incidentDate": "2026-01-17",
+      "claimAmountINR": 950000,
+      "location": "Chennai, Tamil Nadu",
+      "incidentDescription": "Side-panel damage",
+      "providerName": "Cedar Motors",
+      "invoiceNumber": "INV-2026-5005",
+      "submissionDate": "2026-01-25",
+      "status": "REFERENCE",
+      "synthetic": true
+    },
+    "injectedIssues": [
+      "claimAmountINR set to 950000 for an ordinary auto repair scenario"
+    ],
+    "expectedFlags": [
+      "AMOUNT_OUTLIER"
+    ],
+    "synthetic": true
+  },
+  {
+    "testCaseId": "TC-005",
+    "claimId": "CG-2026-0006",
+    "baselineClaim": {
+      "claimId": "CG-2026-0006",
+      "claimType": "Property",
+      "policyNumber": "POL-PR-100006",
+      "incidentDate": "2024-01-01",
+      "claimAmountINR": 145000,
+      "location": "Pune, Maharashtra",
+      "incidentDescription": "Water leak",
+      "providerName": "Oakline Restoration",
+      "invoiceNumber": "INV-2026-5006",
+      "submissionDate": "2026-02-01",
+      "status": "REFERENCE",
+      "synthetic": true
+    },
+    "injectedIssues": [
+      "incidentDate moved outside policy coverage period"
+    ],
+    "expectedFlags": [
+      "INCIDENT_OUTSIDE_COVERAGE"
+    ],
+    "synthetic": true
+  },
+  {
+    "testCaseId": "TC-006",
+    "claimId": "CG-2026-0007",
+    "baselineClaim": {
+      "claimId": "CG-2026-0007",
+      "claimType": "Health",
+      "policyNumber": "POL-HE-100007",
+      "incidentDate": "2026-01-23",
+      "claimAmountINR": 24000,
+      "location": "Pune, Maharashtra",
+      "incidentDescription": "Emergency treatment",
+      "providerName": "Greenway Diagnostics",
+      "invoiceNumber": "INV-2026-5007",
+      "submissionDate": "2026-01-27",
+      "status": "REFERENCE",
+      "synthetic": true
+    },
+    "injectedIssues": [
+      "same document checksum appears in two submissions"
+    ],
+    "expectedFlags": [
+      "POSSIBLE_DUPLICATE_DOCUMENT"
+    ],
+    "synthetic": true
+  },
+  {
+    "testCaseId": "TC-007",
+    "claimId": "CG-2026-0008",
+    "baselineClaim": {
+      "claimId": "CG-2026-0008",
+      "claimType": "Travel",
+      "policyNumber": "POL-TR-100008",
+      "incidentDate": "2026-01-26",
+      "claimAmountINR": 16000,
+      "location": "Bengaluru, Karnataka",
+      "incidentDescription": "Delayed baggage",
+      "providerName": "Horizon Travel Care",
+      "invoiceNumber": "INV-2026-5008",
+      "submissionDate": "2026-01-28",
+      "status": "REFERENCE",
+      "synthetic": true
+    },
+    "injectedIssues": [
+      "claim form amount differs from invoice total"
+    ],
+    "expectedFlags": [
+      "AMOUNT_MISMATCH"
+    ],
+    "synthetic": true,
+    "invoiceClaimAmountINR": 20500
+  },
+  {
+    "testCaseId": "TC-008",
+    "claimId": "CG-2026-0009",
+    "baselineClaim": {
+      "claimId": "CG-2026-0009",
+      "claimType": "Auto",
+      "policyNumber": "POL-AU-100009",
+      "incidentDate": "2026-01-29",
+      "claimAmountINR": 47500,
+      "location": "Pune, Maharashtra",
+      "incidentDescription": "Minor intersection collision",
+      "providerName": "Metro Panel Works",
+      "invoiceNumber": "INV-2026-5009",
+      "submissionDate": "2026-01-30",
+      "status": "REFERENCE",
+      "synthetic": true
+    },
+    "injectedIssues": [
+      "claim form omits policyNumber"
+    ],
+    "expectedFlags": [
+      "MISSING_REQUIRED_FIELD"
+    ],
+    "synthetic": true,
+    "missingFields": [
+      "policyNumber"
+    ]
+  },
+  {
+    "testCaseId": "TC-009",
+    "claimId": "CG-2026-0010",
+    "baselineClaim": {
+      "claimId": "CG-2026-0010",
+      "claimType": "Property",
+      "policyNumber": "POL-PR-100010",
+      "incidentDate": "2026-02-01",
+      "claimAmountINR": 210000,
+      "location": "Hyderabad, Telangana",
+      "incidentDescription": "Roof tile damage",
+      "providerName": "Harbor Home Repairs",
+      "invoiceNumber": "INV-2026-5010",
+      "submissionDate": "2026-02-08",
+      "status": "REFERENCE",
+      "synthetic": true
+    },
+    "injectedIssues": [],
+    "expectedFlags": [],
+    "synthetic": true
+  },
+  {
+    "testCaseId": "TC-010",
+    "claimId": "CG-2026-0011",
+    "baselineClaim": {
+      "claimId": "CG-2026-0011",
+      "claimType": "Health",
+      "policyNumber": "POL-HE-100011",
+      "incidentDate": "2026-02-04",
+      "claimAmountINR": 2500,
+      "location": "Chennai, Tamil Nadu",
+      "incidentDescription": "Windshield damage after a parking-lot incident",
+      "providerName": "CityCare Hospital",
+      "invoiceNumber": "INV-2026-5011",
+      "submissionDate": "2026-02-14",
+      "status": "REFERENCE",
+      "synthetic": true
+    },
+    "injectedIssues": [
+      "description says windshield damage but claim type is Health"
+    ],
+    "expectedFlags": [
+      "NARRATIVE_TYPE_INCONSISTENCY"
+    ],
+    "synthetic": true
+  },
+  {
+    "testCaseId": "TC-011",
+    "claimId": "CG-2026-0012",
+    "baselineClaim": {
+      "claimId": "CG-2026-0012",
+      "claimType": "Travel",
+      "policyNumber": "POL-TR-100012",
+      "incidentDate": "2026-02-07",
+      "claimAmountINR": 9000,
+      "location": "Bengaluru, Karnataka",
+      "incidentDescription": "Delayed baggage",
+      "providerName": "Wayfinder Assist",
+      "invoiceNumber": "INV-2026-5012",
+      "submissionDate": "2026-02-12",
+      "status": "REFERENCE",
+      "synthetic": true
+    },
+    "injectedIssues": [
+      "document type is not PDF, JPG, JPEG or PNG"
+    ],
+    "expectedFlags": [
+      "UNSUPPORTED_DOCUMENT_FORMAT"
+    ],
+    "synthetic": true,
+    "uploadedDocumentType": "application/msword"
+  },
+  {
+    "testCaseId": "TC-012",
+    "claimId": "CG-2026-0013",
+    "baselineClaim": {
+      "claimId": "CG-2026-0013",
+      "claimType": "Auto",
+      "policyNumber": "POL-AU-100013",
+      "incidentDate": "2026-02-10",
+      "claimAmountINR": 18500,
+      "location": "Mysuru, Karnataka",
+      "incidentDescription": "Rear-end collision",
+      "providerName": "Bluebird Auto Care",
+      "invoiceNumber": "INV-2026-5013",
+      "submissionDate": "2026-02-15",
+      "status": "REFERENCE",
+      "synthetic": true
+    },
+    "injectedIssues": [
+      "synthetic test image has a planted editing indicator label; no actual model result supplied"
+    ],
+    "expectedFlags": [
+      "IMAGE_TAMPERING_REVIEW"
+    ],
+    "synthetic": true,
+    "imageFixtureNote": "Synthetic fixture placeholder only; attach a generated sample image and evaluate with the selected model."
+  }
+]

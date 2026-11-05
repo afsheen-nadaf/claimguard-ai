@@ -4,7 +4,7 @@
 export const REGION = "ap-southeast-2";
 
 export const API_BASE =
-  import.meta.env.VITE_API_BASE ||
+  import.meta.env?.VITE_API_BASE ||
   "https://7cd0wz7wh0.execute-api.ap-southeast-2.amazonaws.com/Prod";
 
 export const ENDPOINTS = {
@@ -12,6 +12,8 @@ export const ENDPOINTS = {
   validate: `${API_BASE}/claims/validate`,
   duplicate: `${API_BASE}/claims/check-duplicate`,
   outlier: `${API_BASE}/claims/check-outlier`,
+  analyzeImage: `${API_BASE}/claims/analyze-image`,
+  validateEvidence: `${API_BASE}/claims/validate-evidence`,
 };
 
 export const UPLOAD_RULES = {

@@ -1,0 +1,290 @@
+[
+  {
+    "policyNumber": "POL-AU-100001",
+    "claimType": "Auto",
+    "policyStatus": "ACTIVE",
+    "coverageStart": "2025-01-05",
+    "coverageEnd": "2027-01-05",
+    "coverageLimitINR": 250000,
+    "synthetic": true
+  },
+  {
+    "policyNumber": "POL-PR-100002",
+    "claimType": "Property",
+    "policyStatus": "ACTIVE",
+    "coverageStart": "2025-01-08",
+    "coverageEnd": "2027-01-08",
+    "coverageLimitINR": 100000,
+    "synthetic": true
+  },
+  {
+    "policyNumber": "POL-HE-100003",
+    "claimType": "Health",
+    "policyStatus": "ACTIVE",
+    "coverageStart": "2025-01-11",
+    "coverageEnd": "2027-01-11",
+    "coverageLimitINR": 100000,
+    "synthetic": true
+  },
+  {
+    "policyNumber": "POL-TR-100004",
+    "claimType": "Travel",
+    "policyStatus": "ACTIVE",
+    "coverageStart": "2025-01-14",
+    "coverageEnd": "2027-01-14",
+    "coverageLimitINR": 100000,
+    "synthetic": true
+  },
+  {
+    "policyNumber": "POL-AU-100005",
+    "claimType": "Auto",
+    "policyStatus": "ACTIVE",
+    "coverageStart": "2025-01-17",
+    "coverageEnd": "2027-01-17",
+    "coverageLimitINR": 100000,
+    "synthetic": true
+  },
+  {
+    "policyNumber": "POL-PR-100006",
+    "claimType": "Property",
+    "policyStatus": "ACTIVE",
+    "coverageStart": "2025-01-20",
+    "coverageEnd": "2027-01-20",
+    "coverageLimitINR": 290000,
+    "synthetic": true
+  },
+  {
+    "policyNumber": "POL-HE-100007",
+    "claimType": "Health",
+    "policyStatus": "ACTIVE",
+    "coverageStart": "2025-01-23",
+    "coverageEnd": "2027-01-23",
+    "coverageLimitINR": 100000,
+    "synthetic": true
+  },
+  {
+    "policyNumber": "POL-TR-100008",
+    "claimType": "Travel",
+    "policyStatus": "ACTIVE",
+    "coverageStart": "2025-01-26",
+    "coverageEnd": "2027-01-26",
+    "coverageLimitINR": 100000,
+    "synthetic": true
+  },
+  {
+    "policyNumber": "POL-AU-100009",
+    "claimType": "Auto",
+    "policyStatus": "ACTIVE",
+    "coverageStart": "2025-01-29",
+    "coverageEnd": "2027-01-29",
+    "coverageLimitINR": 100000,
+    "synthetic": true
+  },
+  {
+    "policyNumber": "POL-PR-100010",
+    "claimType": "Property",
+    "policyStatus": "ACTIVE",
+    "coverageStart": "2025-02-01",
+    "coverageEnd": "2027-02-01",
+    "coverageLimitINR": 420000,
+    "synthetic": true
+  },
+  {
+    "policyNumber": "POL-HE-100011",
+    "claimType": "Health",
+    "policyStatus": "ACTIVE",
+    "coverageStart": "2025-02-04",
+    "coverageEnd": "2027-02-04",
+    "coverageLimitINR": 100000,
+    "synthetic": true
+  },
+  {
+    "policyNumber": "POL-TR-100012",
+    "claimType": "Travel",
+    "policyStatus": "ACTIVE",
+    "coverageStart": "2025-02-07",
+    "coverageEnd": "2027-02-07",
+    "coverageLimitINR": 100000,
+    "synthetic": true
+  },
+  {
+    "policyNumber": "POL-AU-100013",
+    "claimType": "Auto",
+    "policyStatus": "ACTIVE",
+    "coverageStart": "2025-02-10",
+    "coverageEnd": "2027-02-10",
+    "coverageLimitINR": 100000,
+    "synthetic": true
+  },
+  {
+    "policyNumber": "POL-PR-100014",
+    "claimType": "Property",
+    "policyStatus": "ACTIVE",
+    "coverageStart": "2025-02-13",
+    "coverageEnd": "2027-02-13",
+    "coverageLimitINR": 174000,
+    "synthetic": true
+  },
+  {
+    "policyNumber": "POL-HE-100015",
+    "claimType": "Health",
+    "policyStatus": "ACTIVE",
+    "coverageStart": "2025-02-16",
+    "coverageEnd": "2027-02-16",
+    "coverageLimitINR": 100000,
+    "synthetic": true
+  },
+  {
+    "policyNumber": "POL-TR-100016",
+    "claimType": "Travel",
+    "policyStatus": "ACTIVE",
+    "coverageStart": "2025-02-19",
+    "coverageEnd": "2027-02-19",
+    "coverageLimitINR": 144000,
+    "synthetic": true
+  },
+  {
+    "policyNumber": "POL-AU-100017",
+    "claimType": "Auto",
+    "policyStatus": "ACTIVE",
+    "coverageStart": "2025-02-22",
+    "coverageEnd": "2027-02-22",
+    "coverageLimitINR": 100000,
+    "synthetic": true
+  },
+  {
+    "policyNumber": "POL-PR-100018",
+    "claimType": "Property",
+    "policyStatus": "ACTIVE",
+    "coverageStart": "2025-02-25",
+    "coverageEnd": "2027-02-25",
+    "coverageLimitINR": 100000,
+    "synthetic": true
+  },
+  {
+    "policyNumber": "POL-HE-100019",
+    "claimType": "Health",
+    "policyStatus": "ACTIVE",
+    "coverageStart": "2025-02-28",
+    "coverageEnd": "2027-02-28",
+    "coverageLimitINR": 100000,
+    "synthetic": true
+  },
+  {
+    "policyNumber": "POL-TR-100020",
+    "claimType": "Travel",
+    "policyStatus": "ACTIVE",
+    "coverageStart": "2025-03-03",
+    "coverageEnd": "2027-03-03",
+    "coverageLimitINR": 144000,
+    "synthetic": true
+  },
+  {
+    "policyNumber": "POL-AU-100021",
+    "claimType": "Auto",
+    "policyStatus": "ACTIVE",
+    "coverageStart": "2025-03-06",
+    "coverageEnd": "2027-03-06",
+    "coverageLimitINR": 100000,
+    "synthetic": true
+  },
+  {
+    "policyNumber": "POL-PR-100022",
+    "claimType": "Property",
+    "policyStatus": "ACTIVE",
+    "coverageStart": "2025-03-09",
+    "coverageEnd": "2027-03-09",
+    "coverageLimitINR": 290000,
+    "synthetic": true
+  },
+  {
+    "policyNumber": "POL-HE-100023",
+    "claimType": "Health",
+    "policyStatus": "ACTIVE",
+    "coverageStart": "2025-03-12",
+    "coverageEnd": "2027-03-12",
+    "coverageLimitINR": 100000,
+    "synthetic": true
+  },
+  {
+    "policyNumber": "POL-TR-100024",
+    "claimType": "Travel",
+    "policyStatus": "ACTIVE",
+    "coverageStart": "2025-03-15",
+    "coverageEnd": "2027-03-15",
+    "coverageLimitINR": 100000,
+    "synthetic": true
+  },
+  {
+    "policyNumber": "POL-AU-100025",
+    "claimType": "Auto",
+    "policyStatus": "ACTIVE",
+    "coverageStart": "2025-03-18",
+    "coverageEnd": "2027-03-18",
+    "coverageLimitINR": 136000,
+    "synthetic": true
+  },
+  {
+    "policyNumber": "POL-PR-100026",
+    "claimType": "Property",
+    "policyStatus": "ACTIVE",
+    "coverageStart": "2025-03-21",
+    "coverageEnd": "2027-03-21",
+    "coverageLimitINR": 290000,
+    "synthetic": true
+  },
+  {
+    "policyNumber": "POL-HE-100027",
+    "claimType": "Health",
+    "policyStatus": "ACTIVE",
+    "coverageStart": "2025-03-24",
+    "coverageEnd": "2027-03-24",
+    "coverageLimitINR": 100000,
+    "synthetic": true
+  },
+  {
+    "policyNumber": "POL-TR-100028",
+    "claimType": "Travel",
+    "policyStatus": "ACTIVE",
+    "coverageStart": "2025-03-27",
+    "coverageEnd": "2027-03-27",
+    "coverageLimitINR": 100000,
+    "synthetic": true
+  },
+  {
+    "policyNumber": "POL-AU-100029",
+    "claimType": "Auto",
+    "policyStatus": "ACTIVE",
+    "coverageStart": "2025-03-30",
+    "coverageEnd": "2027-03-30",
+    "coverageLimitINR": 136000,
+    "synthetic": true
+  },
+  {
+    "policyNumber": "POL-PR-100030",
+    "claimType": "Property",
+    "policyStatus": "ACTIVE",
+    "coverageStart": "2025-04-02",
+    "coverageEnd": "2027-04-02",
+    "coverageLimitINR": 100000,
+    "synthetic": true
+  },
+  {
+    "policyNumber": "POL-HE-100031",
+    "claimType": "Health",
+    "policyStatus": "ACTIVE",
+    "coverageStart": "2025-04-05",
+    "coverageEnd": "2027-04-05",
+    "coverageLimitINR": 100000,
+    "synthetic": true
+  },
+  {
+    "policyNumber": "POL-TR-100032",
+    "claimType": "Travel",
+    "policyStatus": "ACTIVE",
+    "coverageStart": "2025-04-08",
+    "coverageEnd": "2027-04-08",
+    "coverageLimitINR": 100000,
+    "synthetic": true
+  }
+]

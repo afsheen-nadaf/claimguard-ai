@@ -1,0 +1,179 @@
+[
+  {
+    "testCaseId": "TC-001",
+    "name": "Consistent ordinary auto claim",
+    "claimId": "CG-2026-0001",
+    "injectedIssues": [],
+    "expectedFlags": [],
+    "expectedOutcome": "No planted anomaly; still requires normal validation.",
+    "checks": [
+      "cross_document_consistency",
+      "amount_outlier",
+      "duplicate_submission"
+    ]
+  },
+  {
+    "testCaseId": "TC-002",
+    "name": "Conflicting incident date",
+    "claimId": "CG-2026-0002",
+    "injectedIssues": [
+      "claim_form.incidentDate differs from invoice.incidentDate"
+    ],
+    "expectedFlags": [
+      "DATE_MISMATCH"
+    ],
+    "expectedOutcome": "Flag the date conflict for analyst review.",
+    "checks": [
+      "cross_document_consistency"
+    ]
+  },
+  {
+    "testCaseId": "TC-003",
+    "name": "Duplicate invoice number",
+    "claimId": "CG-2026-0003",
+    "injectedIssues": [
+      "invoiceNumber reused from another claim"
+    ],
+    "expectedFlags": [
+      "POSSIBLE_DUPLICATE_INVOICE"
+    ],
+    "expectedOutcome": "Flag the reused invoice identifier; do not automatically label fraud.",
+    "checks": [
+      "duplicate_submission"
+    ]
+  },
+  {
+    "testCaseId": "TC-004",
+    "name": "Unusually high auto amount",
+    "claimId": "CG-2026-0005",
+    "injectedIssues": [
+      "claimAmountINR set to 950000 for an ordinary auto repair scenario"
+    ],
+    "expectedFlags": [
+      "AMOUNT_OUTLIER"
+    ],
+    "expectedOutcome": "Flag for contextual review against comparable auto claims and coverage.",
+    "checks": [
+      "amount_outlier",
+      "policy_reference_validation"
+    ]
+  },
+  {
+    "testCaseId": "TC-005",
+    "name": "Claim outside policy coverage",
+    "claimId": "CG-2026-0006",
+    "injectedIssues": [
+      "incidentDate moved outside policy coverage period"
+    ],
+    "expectedFlags": [
+      "INCIDENT_OUTSIDE_COVERAGE"
+    ],
+    "expectedOutcome": "Flag a policy/date inconsistency; confirm policy terms before any decision.",
+    "checks": [
+      "policy_reference_validation"
+    ]
+  },
+  {
+    "testCaseId": "TC-006",
+    "name": "Repeated claim packet",
+    "claimId": "CG-2026-0007",
+    "injectedIssues": [
+      "same document checksum appears in two submissions"
+    ],
+    "expectedFlags": [
+      "POSSIBLE_DUPLICATE_DOCUMENT"
+    ],
+    "expectedOutcome": "Flag identical document content for analyst review.",
+    "checks": [
+      "duplicate_submission"
+    ]
+  },
+  {
+    "testCaseId": "TC-007",
+    "name": "Conflicting claim amount",
+    "claimId": "CG-2026-0008",
+    "injectedIssues": [
+      "claim form amount differs from invoice total"
+    ],
+    "expectedFlags": [
+      "AMOUNT_MISMATCH"
+    ],
+    "expectedOutcome": "Flag amount mismatch between documents.",
+    "checks": [
+      "cross_document_consistency"
+    ]
+  },
+  {
+    "testCaseId": "TC-008",
+    "name": "Missing required field",
+    "claimId": "CG-2026-0009",
+    "injectedIssues": [
+      "claim form omits policyNumber"
+    ],
+    "expectedFlags": [
+      "MISSING_REQUIRED_FIELD"
+    ],
+    "expectedOutcome": "Flag incomplete extraction or missing data; request correction if appropriate.",
+    "checks": [
+      "document_completeness"
+    ]
+  },
+  {
+    "testCaseId": "TC-009",
+    "name": "Consistent ordinary health claim",
+    "claimId": "CG-2026-0010",
+    "injectedIssues": [],
+    "expectedFlags": [],
+    "expectedOutcome": "No planted anomaly; still requires normal validation.",
+    "checks": [
+      "cross_document_consistency",
+      "amount_outlier",
+      "duplicate_submission"
+    ]
+  },
+  {
+    "testCaseId": "TC-010",
+    "name": "Possible narrative inconsistency",
+    "claimId": "CG-2026-0011",
+    "injectedIssues": [
+      "description says windshield damage but claim type is Health"
+    ],
+    "expectedFlags": [
+      "NARRATIVE_TYPE_INCONSISTENCY"
+    ],
+    "expectedOutcome": "Ask an analyst to review the mismatch; text alone is not proof.",
+    "checks": [
+      "llm_narrative_reasoning"
+    ]
+  },
+  {
+    "testCaseId": "TC-011",
+    "name": "Unsupported file format",
+    "claimId": "CG-2026-0012",
+    "injectedIssues": [
+      "document type is not PDF, JPG, JPEG or PNG"
+    ],
+    "expectedFlags": [
+      "UNSUPPORTED_DOCUMENT_FORMAT"
+    ],
+    "expectedOutcome": "Reject or quarantine according to the configured upload policy.",
+    "checks": [
+      "document_completeness"
+    ]
+  },
+  {
+    "testCaseId": "TC-012",
+    "name": "Potential image edit",
+    "claimId": "CG-2026-0013",
+    "injectedIssues": [
+      "synthetic test image has a planted editing indicator label; no actual model result supplied"
+    ],
+    "expectedFlags": [
+      "IMAGE_TAMPERING_REVIEW"
+    ],
+    "expectedOutcome": "Test fixture only: model must assess image; do not treat the planted label as model evidence.",
+    "checks": [
+      "image_tampering_model"
+    ]
+  }
+]
