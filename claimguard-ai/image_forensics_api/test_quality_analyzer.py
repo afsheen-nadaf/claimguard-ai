@@ -451,6 +451,429 @@ class TestQualityAnalyzer(unittest.TestCase):
         self.assertEqual(res["image_quality"]["sharpness_label"], "Sharp")
         self.assertEqual(res["quality_assessment"]["resolution"], "Sufficient")
 
+    def test_22_large_png_downscaled_proxy_preserves_original_dimensions(self):
+        """Test 22: Large PNG (>2048 px) is proxy-downscaled for NumPy analysis while preserving original dimensions."""
+        large_png = self.temp_dir / "large_photo.png"
+        Image.new("RGB", (3000, 2400), color=(100, 150, 200)).save(large_png)
+
+        res = analyze_image_quality(large_png)
+        q = res["image_quality"]
+
+        # Original dimensions must be preserved
+        self.assertEqual(q["width"], 3000)
+        self.assertEqual(q["height"], 2400)
+        self.assertEqual(q["megapixels"], 7.2)
+
+        # Proxy downscaling metrics
+        self.assertTrue(q["analysis_downscaled"])
+        self.assertEqual(q["analyzed_width"], 2048)
+        self.assertEqual(q["analyzed_height"], 1638)
+
+        # Metrics are still computed and valid
+        self.assertIsInstance(q["blur_score"], float)
+        self.assertIsInstance(q["brightness_score"], float)
+        self.assertIsInstance(q["contrast_score"], float)
+        self.assertIsInstance(q["noise_estimate"], float)
+
+        # Informational finding is attached
+        codes = [f["code"] for f in res["findings"]]
+        self.assertIn("ANALYSIS_RESOLUTION_DOWNSCALED", codes)
+        downscale_finding = next(f for f in res["findings"] if f["code"] == "ANALYSIS_RESOLUTION_DOWNSCALED")
+        self.assertEqual(downscale_finding["severity"], "informational")
+
+    def test_23_large_jpeg_downscaled_proxy_preserves_original_dimensions(self):
+        """Test 23: Large JPEG (>2048 px) is proxy-downscaled for NumPy analysis while preserving original dimensions."""
+        large_jpg = self.temp_dir / "large_photo.jpg"
+        Image.new("RGB", (4000, 3000), color=(120, 140, 160)).save(large_jpg, quality=85)
+
+        res = analyze_image_quality(large_jpg)
+        q = res["image_quality"]
+
+        self.assertEqual(q["width"], 4000)
+        self.assertEqual(q["height"], 3000)
+        self.assertEqual(q["megapixels"], 12.0)
+        self.assertTrue(q["analysis_downscaled"])
+        self.assertEqual(q["analyzed_width"], 2048)
+        self.assertEqual(q["analyzed_height"], 1536)
+
+    def test_24_small_images_remain_undownscaled(self):
+        """Test 24: Images <= 2048 px are not downscaled and retain identical analyzed dimensions."""
+        res = analyze_image_quality(self.sharp_image)
+        q = res["image_quality"]
+
+        self.assertFalse(q["analysis_downscaled"])
+        self.assertEqual(q["analyzed_width"], q["width"])
+        self.assertEqual(q["analyzed_height"], q["height"])
+        codes = [f["code"] for f in res["findings"]]
+        self.assertNotIn("ANALYSIS_RESOLUTION_DOWNSCALED", codes)
+
+
+class TestImageForensicsLambdaReliability(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        import os
+        import sys
+        from unittest.mock import MagicMock
+
+        os.environ.setdefault("CLAIM_PACKETS_BUCKET", "test-claim-packets")
+
+        # Mock gradio_client in sys.modules if not installed locally
+        if "gradio_client" not in sys.modules:
+            mock_gc = MagicMock()
+            mock_gc.Client = MagicMock
+            mock_gc.handle_file = lambda p: p
+            sys.modules["gradio_client"] = mock_gc
+
+        cls.temp_dir = Path(tempfile.mkdtemp(prefix="claimguard_lambda_rel_"))
+
+        # Create dummy JPEG and PNG files
+        cls.test_jpg = cls.temp_dir / "test.jpg"
+        Image.new("RGB", (640, 480), color=(120, 160, 200)).save(cls.test_jpg, quality=80)
+
+        cls.test_png = cls.temp_dir / "test.png"
+        Image.new("RGBA", (800, 600), color=(255, 128, 0, 255)).save(cls.test_png)
+
+    @classmethod
+    def tearDownClass(cls):
+        import shutil
+        shutil.rmtree(cls.temp_dir, ignore_errors=True)
+
+    def _mock_s3_for_file(self, file_path):
+        from unittest.mock import patch
+        import app
+
+        head_patch = patch.object(
+            app.s3, "head_object", return_value={"ContentLength": file_path.stat().st_size}
+        )
+        down_patch = patch.object(
+            app.s3, "download_file", side_effect=lambda b, k, dest: Path(dest).write_bytes(file_path.read_bytes())
+        )
+        return head_patch, down_patch
+
+    def test_25_smaug_skipped_when_insufficient_lambda_execution_time(self):
+        """Test 25: Smaug is skipped with status SKIPPED when remaining Lambda time < 25s."""
+        from unittest.mock import MagicMock
+        import app
+
+        ctx = MagicMock()
+        ctx.get_remaining_time_in_millis.return_value = 15000  # 15s < 25s threshold
+
+        head_p, down_p = self._mock_s3_for_file(self.test_jpg)
+        with head_p, down_p:
+            res = app.analyze_s3_image("incoming/claim123/damage.jpg", context=ctx)
+
+        smaug = res["analyses"]["aiGeneration"]
+        self.assertEqual(smaug["status"], "SKIPPED")
+        self.assertEqual(smaug["reason"], "INSUFFICIENT_TIME_BUDGET")
+        self.assertIn("remaining Lambda execution time", smaug["message"])
+
+    def test_26_smaug_runs_when_sufficient_lambda_execution_time(self):
+        """Test 26: Smaug executes normally when remaining Lambda time >= 25s."""
+        from unittest.mock import MagicMock, patch
+        import app
+
+        ctx = MagicMock()
+        ctx.get_remaining_time_in_millis.return_value = 90000  # 90s > 25s threshold
+
+        head_p, down_p = self._mock_s3_for_file(self.test_jpg)
+        mock_smaug_return = {
+            "model": "abacusai/Smaug-AI-Image-Detector",
+            "aiGeneratedScore": 0.045123,
+            "aiGeneratedPercentage": 4.51,
+            "interpretation": "Human capture probable.",
+            "disclaimer": "Screening indicator.",
+        }
+
+        with head_p, down_p:
+            with patch("app.analyze_smaug_image", return_value=mock_smaug_return):
+                res = app.analyze_s3_image("incoming/claim123/damage.jpg", context=ctx)
+
+        smaug = res["analyses"]["aiGeneration"]
+        self.assertEqual(smaug["status"], "COMPLETED")
+        self.assertEqual(smaug["result"]["aiGeneratedScore"], 0.045123)
+
+    def test_27_previously_completed_analyses_preserved_when_smaug_skipped(self):
+        """Test 27: Metadata, compression, and quality results remain COMPLETED when Smaug is skipped."""
+        from unittest.mock import MagicMock
+        import app
+
+        ctx = MagicMock()
+        ctx.get_remaining_time_in_millis.return_value = 10000  # 10s < 25s threshold
+
+        head_p, down_p = self._mock_s3_for_file(self.test_png)
+        with head_p, down_p:
+            res = app.analyze_s3_image("incoming/claim123/photo.png", context=ctx)
+
+        analyses = res["analyses"]
+        self.assertEqual(analyses["metadata"]["status"], "COMPLETED")
+        self.assertEqual(analyses["compression"]["status"], "COMPLETED")
+        self.assertEqual(analyses["imageQuality"]["status"], "COMPLETED")
+        self.assertEqual(analyses["aiGeneration"]["status"], "SKIPPED")
+
+    def test_28_skipping_smaug_does_not_create_suspicious_verdict(self):
+        """Test 28: Skipping Smaug due to time budget does not trigger review required or fraud verdict."""
+        from unittest.mock import MagicMock
+        import app
+
+        ctx = MagicMock()
+        ctx.get_remaining_time_in_millis.return_value = 8000
+
+        head_p, down_p = self._mock_s3_for_file(self.test_jpg)
+        with head_p, down_p:
+            res = app.analyze_s3_image("incoming/claim123/damage.jpg", context=ctx)
+
+        review = res["review"]
+        self.assertFalse(review["required"])
+        self.assertEqual(review["priority"], "NONE")
+        self.assertEqual(review["reasons"], [])
+
+    def test_29_smaug_timeout_handling_cancels_job(self):
+        """Test 29: Smaug TimeoutError is captured cleanly and job.cancel() is invoked."""
+        from unittest.mock import MagicMock, patch
+        import app
+
+        mock_client = MagicMock()
+        mock_job = MagicMock()
+        mock_job.result.side_effect = TimeoutError("Gradio request timed out")
+        mock_client.submit.return_value = mock_job
+
+        with patch("app.get_smaug_client", return_value=mock_client):
+            with self.assertRaises(TimeoutError):
+                app.analyze_smaug_image(self.test_jpg, timeout=1.0)
+
+        # Verify job.cancel() was called upon timeout
+        mock_job.cancel.assert_called_once()
+
+    def test_30_three_image_sequential_processing_pipeline(self):
+        """Test 30: Lambda handler processes 3 images sequentially and returns COMPLETED status."""
+        from unittest.mock import MagicMock, patch
+        import json
+        import app
+
+        ctx = MagicMock()
+        ctx.get_remaining_time_in_millis.return_value = 120000
+
+        mock_smaug = {
+            "model": "Smaug",
+            "aiGeneratedScore": 0.02,
+            "aiGeneratedPercentage": 2.0,
+            "interpretation": "Natural photo",
+            "disclaimer": "Disclaimer",
+        }
+
+        event = {
+            "httpMethod": "POST",
+            "body": json.dumps({
+                "claimId": "claim_772",
+                "imageKeys": [
+                    "incoming/claim_772/img1.jpg",
+                    "incoming/claim_772/img2.jpg",
+                    "incoming/claim_772/img3.png",
+                ]
+            })
+        }
+
+        head_patch = patch.object(
+            app.s3, "head_object", return_value={"ContentLength": self.test_jpg.stat().st_size}
+        )
+        down_patch = patch.object(
+            app.s3, "download_file", side_effect=lambda b, k, dest: Path(dest).write_bytes(
+                self.test_png.read_bytes() if k.endswith(".png") else self.test_jpg.read_bytes()
+            )
+        )
+
+        with head_patch, down_patch, patch("app.analyze_smaug_image", return_value=mock_smaug):
+            response = app.lambda_handler(event, ctx)
+
+        self.assertEqual(response["statusCode"], 200)
+        body = json.loads(response["body"])
+        self.assertEqual(body["claimId"], "claim_772")
+        self.assertEqual(body["imagesSubmitted"], 3)
+        self.assertEqual(body["analysisStatus"], "COMPLETED")
+        self.assertEqual(len(body["images"]), 3)
+
+    def test_31_existing_jpeg_and_png_response_compatibility_under_guard(self):
+        """Test 31: Response contract keys remain 100% compatible when images are processed under time guard."""
+        from unittest.mock import MagicMock, patch
+        import json
+        import app
+
+        # Simulate low time so Smaug skips on the 2nd/3rd image
+        ctx = MagicMock()
+        ctx.get_remaining_time_in_millis.side_effect = [30000, 15000]
+
+        event = {
+            "httpMethod": "POST",
+            "body": json.dumps({
+                "claimId": "claim_883",
+                "imageKeys": [
+                    "incoming/claim_883/car.jpg",
+                    "incoming/claim_883/detail.png",
+                ]
+            })
+        }
+
+        head_patch = patch.object(
+            app.s3, "head_object", return_value={"ContentLength": self.test_jpg.stat().st_size}
+        )
+        down_patch = patch.object(
+            app.s3, "download_file", side_effect=lambda b, k, dest: Path(dest).write_bytes(
+                self.test_png.read_bytes() if k.endswith(".png") else self.test_jpg.read_bytes()
+            )
+        )
+
+        with head_patch, down_patch, patch("app.analyze_smaug_image", return_value={"aiGeneratedScore": 0.01}):
+            response = app.lambda_handler(event, ctx)
+
+        self.assertEqual(response["statusCode"], 200)
+        body = json.loads(response["body"])
+        self.assertEqual(body["analysisStatus"], "COMPLETED")
+        self.assertEqual(body["imagesSubmitted"], 2)
+
+        # Image 1 had enough time (COMPLETED)
+        self.assertEqual(body["images"][0]["analyses"]["aiGeneration"]["status"], "COMPLETED")
+        # Image 2 hit the deadline guard (SKIPPED)
+        self.assertEqual(body["images"][1]["analyses"]["aiGeneration"]["status"], "SKIPPED")
+
+        # Top-level contract keys
+        for key in ("claimId", "analysisStatus", "imagesSubmitted", "analysesCompleted", "analysesWithErrors", "images", "disclaimer"):
+            self.assertIn(key, body)
+
+    def test_32_dynamic_timeout_24s_remaining_skipped(self):
+        """Test 32: 24 seconds remaining (< 25s threshold) skips Smaug analysis."""
+        from unittest.mock import MagicMock
+        import app
+
+        ctx = MagicMock()
+        ctx.get_remaining_time_in_millis.return_value = 24000  # 24s
+
+        head_p, down_p = self._mock_s3_for_file(self.test_jpg)
+        with head_p, down_p:
+            res = app.analyze_s3_image("incoming/claim123/damage.jpg", context=ctx)
+
+        smaug = res["analyses"]["aiGeneration"]
+        self.assertEqual(smaug["status"], "SKIPPED")
+        self.assertEqual(smaug["reason"], "INSUFFICIENT_TIME_BUDGET")
+
+    def test_33_dynamic_timeout_25s_remaining_effective_20s(self):
+        """Test 33: 25 seconds remaining allows Smaug with effective timeout of 20 seconds (25s - 5s buffer)."""
+        from unittest.mock import MagicMock, patch
+        import app
+
+        ctx = MagicMock()
+        ctx.get_remaining_time_in_millis.return_value = 25000  # 25s
+
+        head_p, down_p = self._mock_s3_for_file(self.test_jpg)
+        with head_p, down_p, patch("app.analyze_smaug_image", return_value={"aiGeneratedScore": 0.02}) as mock_smaug:
+            res = app.analyze_s3_image("incoming/claim123/damage.jpg", context=ctx)
+            mock_smaug.assert_called_once()
+            self.assertEqual(mock_smaug.call_args[1].get("timeout"), 20.0)
+
+        self.assertEqual(res["analyses"]["aiGeneration"]["status"], "COMPLETED")
+
+    def test_34_dynamic_timeout_26s_remaining_effective_21s(self):
+        """Test 34: 26 seconds remaining allows Smaug with effective timeout of 21 seconds (26s - 5s buffer)."""
+        from unittest.mock import MagicMock, patch
+        import app
+
+        ctx = MagicMock()
+        ctx.get_remaining_time_in_millis.return_value = 26000  # 26s
+
+        head_p, down_p = self._mock_s3_for_file(self.test_jpg)
+        with head_p, down_p, patch("app.analyze_smaug_image", return_value={"aiGeneratedScore": 0.02}) as mock_smaug:
+            res = app.analyze_s3_image("incoming/claim123/damage.jpg", context=ctx)
+            mock_smaug.assert_called_once()
+            self.assertEqual(mock_smaug.call_args[1].get("timeout"), 21.0)
+
+        self.assertEqual(res["analyses"]["aiGeneration"]["status"], "COMPLETED")
+
+    def test_35_dynamic_timeout_29s_remaining_effective_24s(self):
+        """Test 35: 29 seconds remaining allows Smaug with effective timeout of 24 seconds (29s - 5s buffer)."""
+        from unittest.mock import MagicMock, patch
+        import app
+
+        ctx = MagicMock()
+        ctx.get_remaining_time_in_millis.return_value = 29000  # 29s
+
+        head_p, down_p = self._mock_s3_for_file(self.test_jpg)
+        with head_p, down_p, patch("app.analyze_smaug_image", return_value={"aiGeneratedScore": 0.02}) as mock_smaug:
+            res = app.analyze_s3_image("incoming/claim123/damage.jpg", context=ctx)
+            mock_smaug.assert_called_once()
+            self.assertEqual(mock_smaug.call_args[1].get("timeout"), 24.0)
+
+        self.assertEqual(res["analyses"]["aiGeneration"]["status"], "COMPLETED")
+
+    def test_36_dynamic_timeout_30s_remaining_effective_25s(self):
+        """Test 36: 30 seconds remaining allows Smaug with effective timeout of 25 seconds (30s - 5s buffer)."""
+        from unittest.mock import MagicMock, patch
+        import app
+
+        ctx = MagicMock()
+        ctx.get_remaining_time_in_millis.return_value = 30000  # 30s
+
+        head_p, down_p = self._mock_s3_for_file(self.test_jpg)
+        with head_p, down_p, patch("app.analyze_smaug_image", return_value={"aiGeneratedScore": 0.02}) as mock_smaug:
+            res = app.analyze_s3_image("incoming/claim123/damage.jpg", context=ctx)
+            mock_smaug.assert_called_once()
+            self.assertEqual(mock_smaug.call_args[1].get("timeout"), 25.0)
+
+        self.assertEqual(res["analyses"]["aiGeneration"]["status"], "COMPLETED")
+
+    def test_37_dynamic_timeout_35s_remaining_capped_at_30s(self):
+        """Test 37: 35 seconds remaining allows Smaug with effective timeout capped at 30 seconds (configured max)."""
+        from unittest.mock import MagicMock, patch
+        import app
+
+        ctx = MagicMock()
+        ctx.get_remaining_time_in_millis.return_value = 35000  # 35s - 5s = 30s cap
+
+        head_p, down_p = self._mock_s3_for_file(self.test_jpg)
+        with head_p, down_p, patch("app.analyze_smaug_image", return_value={"aiGeneratedScore": 0.02}) as mock_smaug:
+            res = app.analyze_s3_image("incoming/claim123/damage.jpg", context=ctx)
+            mock_smaug.assert_called_once()
+            self.assertEqual(mock_smaug.call_args[1].get("timeout"), 30.0)
+
+        self.assertEqual(res["analyses"]["aiGeneration"]["status"], "COMPLETED")
+
+    def test_38_dynamic_timeout_context_unavailable_fallback(self):
+        """Test 38: When context is None, fallback uses configured 30.0s timeout."""
+        from unittest.mock import patch
+        import app
+
+        head_p, down_p = self._mock_s3_for_file(self.test_jpg)
+        with head_p, down_p, patch("app.analyze_smaug_image", return_value={"aiGeneratedScore": 0.02}) as mock_smaug:
+            res = app.analyze_s3_image("incoming/claim123/damage.jpg", context=None)
+            mock_smaug.assert_called_once()
+            self.assertEqual(mock_smaug.call_args[1].get("timeout"), 30.0)
+
+        self.assertEqual(res["analyses"]["aiGeneration"]["status"], "COMPLETED")
+
+    def test_39_dynamic_timeout_handled_timeout_preserves_local_analyses(self):
+        """Test 39: Dynamic timeout expiration marks Smaug as ERROR while preserving all completed local analyses."""
+        from unittest.mock import MagicMock, patch
+        import app
+
+        ctx = MagicMock()
+        ctx.get_remaining_time_in_millis.return_value = 26000  # 26s -> 21s effective timeout
+
+        head_p, down_p = self._mock_s3_for_file(self.test_png)
+        with head_p, down_p, patch("app.analyze_smaug_image", side_effect=TimeoutError("Timed out after 21.0s")):
+            res = app.analyze_s3_image("incoming/claim123/detail.png", context=ctx)
+
+        analyses = res["analyses"]
+        # Local analyses must remain COMPLETED and preserved
+        self.assertEqual(analyses["metadata"]["status"], "COMPLETED")
+        self.assertEqual(analyses["compression"]["status"], "COMPLETED")
+        self.assertEqual(analyses["imageQuality"]["status"], "COMPLETED")
+
+        # Smaug handled as ERROR with explanatory error message
+        self.assertEqual(analyses["aiGeneration"]["status"], "ERROR")
+        self.assertIn("Timed out after 21.0s", analyses["aiGeneration"]["error"])
+
+        # Review engine does not fail
+        self.assertIn("required", res["review"])
+
 
 if __name__ == "__main__":
     unittest.main()
+

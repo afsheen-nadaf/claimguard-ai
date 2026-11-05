@@ -55,6 +55,21 @@ SMAUG_SPACE_ID = os.environ.get(
     "afsheenadaf/claimguard-smaug"
 )
 
+# Timeout for individual Smaug AI-generation prediction request (in seconds)
+SMAUG_TIMEOUT_SECONDS = float(
+    os.environ.get("SMAUG_TIMEOUT_SECONDS", "30.0")
+)
+
+# Minimum remaining Lambda execution time (in milliseconds) required to safely start Smaug
+SMAUG_MIN_REMAINING_TIME_MS = int(
+    os.environ.get("SMAUG_MIN_REMAINING_TIME_MS", "25000")
+)
+
+# Buffer reserved for response serialization, cleanup, and Lambda completion (in milliseconds)
+SMAUG_RESPONSE_BUFFER_MS = int(
+    os.environ.get("SMAUG_RESPONSE_BUFFER_MS", "5000")
+)
+
 # Reuse the client across warm Lambda invocations.
 smaug_client = None
 
@@ -63,17 +78,24 @@ def get_smaug_client():
     """
     Initialize the Hugging Face Gradio client
     only when Smaug analysis is required.
+    Configures underlying httpx client with timeout.
     """
 
     global smaug_client
 
     if smaug_client is None:
-        smaug_client = Client(SMAUG_SPACE_ID)
+        try:
+            smaug_client = Client(
+                SMAUG_SPACE_ID,
+                httpx_kwargs={"timeout": SMAUG_TIMEOUT_SECONDS}
+            )
+        except TypeError:
+            smaug_client = Client(SMAUG_SPACE_ID)
 
     return smaug_client
 
 
-def analyze_smaug_image(local_path):
+def analyze_smaug_image(local_path, timeout=SMAUG_TIMEOUT_SECONDS):
     """
     Send an image to the Hugging Face Smaug Space.
 
@@ -83,10 +105,28 @@ def analyze_smaug_image(local_path):
 
     client = get_smaug_client()
 
-    result = client.predict(
-        image_path=handle_file(str(local_path)),
-        api_name="/analyze"
-    )
+    # Use client.submit().result(timeout=...) which is the native Gradio Client
+    # mechanism for configuring an execution timeout on prediction futures.
+    if hasattr(client, "submit"):
+        job = client.submit(
+            image_path=handle_file(str(local_path)),
+            api_name="/analyze"
+        )
+        try:
+            result = job.result(timeout=timeout)
+        except TimeoutError:
+            try:
+                job.cancel()
+            except Exception:
+                pass
+            raise TimeoutError(
+                f"Smaug AI-generation analysis timed out after {timeout} seconds."
+            )
+    else:
+        result = client.predict(
+            image_path=handle_file(str(local_path)),
+            api_name="/analyze"
+        )
 
     if not isinstance(result, dict):
         raise ValueError(
@@ -205,7 +245,7 @@ def validate_keys(image_keys):
 # IMAGE ANALYSIS PIPELINE
 # --------------------------------------------------
 
-def analyze_s3_image(key):
+def analyze_s3_image(key, context=None):
 
     filename = Path(key).name
     suffix = Path(filename).suffix.lower()
@@ -309,23 +349,54 @@ def analyze_s3_image(key):
         # 4. SMAUG AI-GENERATION DETECTION
         # ------------------------------------------
 
-        try:
+        remaining_ms = None
+        if context is not None and hasattr(context, "get_remaining_time_in_millis"):
+            try:
+                remaining_ms = context.get_remaining_time_in_millis()
+            except Exception:
+                remaining_ms = None
 
-            smaug_result = analyze_smaug_image(
-                local_path
-            )
-
+        if remaining_ms is not None and remaining_ms < SMAUG_MIN_REMAINING_TIME_MS:
             results["aiGeneration"] = {
-                "status": "COMPLETED",
-                "result": smaug_result
+                "status": "SKIPPED",
+                "reason": "INSUFFICIENT_TIME_BUDGET",
+                "message": (
+                    f"AI-generation screening skipped: remaining Lambda execution time "
+                    f"({round(remaining_ms / 1000, 1)}s) is below safety threshold "
+                    f"({round(SMAUG_MIN_REMAINING_TIME_MS / 1000, 1)}s)."
+                ),
             }
+        else:
+            if remaining_ms is not None:
+                # Dynamic timeout: available remaining time minus completion buffer,
+                # capped at the configured maximum timeout.
+                dynamic_timeout = max(1.0, (remaining_ms - SMAUG_RESPONSE_BUFFER_MS) / 1000.0)
+                effective_timeout = min(SMAUG_TIMEOUT_SECONDS, dynamic_timeout)
+            else:
+                effective_timeout = SMAUG_TIMEOUT_SECONDS
 
-        except Exception as exc:
+            try:
+                smaug_result = analyze_smaug_image(
+                    local_path,
+                    timeout=effective_timeout
+                )
 
-            results["aiGeneration"] = {
-                "status": "ERROR",
-                "error": str(exc)[:500]
-            }
+                results["aiGeneration"] = {
+                    "status": "COMPLETED",
+                    "result": smaug_result
+                }
+
+            except TimeoutError as exc:
+                results["aiGeneration"] = {
+                    "status": "ERROR",
+                    "error": str(exc)[:500]
+                }
+
+            except Exception as exc:
+                results["aiGeneration"] = {
+                    "status": "ERROR",
+                    "error": str(exc)[:500]
+                }
 
         # ------------------------------------------
         # 5. ANALYST REVIEW RECOMMENDATION
@@ -422,7 +493,7 @@ def lambda_handler(event, context):
         # ------------------------------------------
 
         image_results = [
-            analyze_s3_image(key)
+            analyze_s3_image(key, context=context)
             for key in keys
         ]
 
