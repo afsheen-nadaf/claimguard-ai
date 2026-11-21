@@ -21,18 +21,58 @@ const FLOW = [
 
 export default function OverviewPage({ records, navigate }) {
   const recent = records.slice(0, 5);
+
+  const stats = {
+    total: records.length,
+    reviewRequired: records.filter(r => summarize(r.checks).key === "review").length,
+    cleared: records.filter(r => summarize(r.checks).key === "clear").length,
+    checks: records.length * 6,
+  };
+
   return (
     <>
-      <PageHeader
-        eyebrow="OVERVIEW"
-        title="Claims screening workspace"
-        description="Screen insurance claims for policy-rule, duplicate and amount-range indicators, with every result explained for a human reviewer."
-        actions={
-          <button type="button" className="btn btn-primary" onClick={() => navigate("/new")}>
-            <Icon name="filePlus" size={17} /> Submit a new claim
-          </button>
-        }
-      />
+      <div className="hero-section">
+        <div className="hero-content">
+          <div className="eyebrow">AI-POWERED FRAUD DETECTION</div>
+          <h1 className="hero-title">Claims Screening Workspace</h1>
+          <p className="hero-description">
+            Multi-layered fraud detection combining rule-based validation,
+            statistical analysis, and AI-powered image forensics. Every flag
+            is explainable for human review.
+          </p>
+          <div className="hero-actions">
+            <button type="button" className="btn btn-primary btn-lg" onClick={() => navigate("/new")}>
+              <Icon name="filePlus" size={18} /> Screen a Claim
+            </button>
+            <button type="button" className="btn btn-secondary btn-lg" onClick={() => navigate("/how")}>
+              <Icon name="help" size={18} /> How it Works
+            </button>
+          </div>
+        </div>
+
+        <div className="stats-grid">
+          <div className="stat-card">
+            <Icon name="file" size={24} />
+            <div className="stat-value">{stats.total}</div>
+            <div className="stat-label">Claims Screened</div>
+          </div>
+          <div className="stat-card stat-warning">
+            <Icon name="alert" size={24} />
+            <div className="stat-value">{stats.reviewRequired}</div>
+            <div className="stat-label">Flagged for Review</div>
+          </div>
+          <div className="stat-card stat-success">
+            <Icon name="checkCircle" size={24} />
+            <div className="stat-value">{stats.cleared}</div>
+            <div className="stat-label">Cleared</div>
+          </div>
+          <div className="stat-card">
+            <Icon name="layers" size={24} />
+            <div className="stat-value">{stats.checks}</div>
+            <div className="stat-label">Checks Completed</div>
+          </div>
+        </div>
+      </div>
 
       <ol className="flow" aria-label="Screening workflow">
         {FLOW.map(([title, sub], i) => (
