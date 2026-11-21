@@ -971,6 +971,58 @@ button.step-button:hover .step-dot { border-color: var(--indigo-500); }
   letter-spacing: 0.06em;
   color: var(--muted);
 }
+.capability-list-compact {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--s2);
+}
+.capability-list-compact li {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s2);
+  background: var(--slate-100);
+  border-radius: var(--radius-sm);
+}
+.cap-icon-sm {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: var(--indigo-50);
+  color: var(--indigo-600);
+  flex-shrink: 0;
+}
+.cap-text-sm {
+  flex: 1;
+  min-width: 0;
+}
+.cap-text-sm strong {
+  font-size: 12px;
+  display: block;
+}
+.recent-list-compact {
+  display: grid;
+  gap: var(--s2);
+  max-height: 400px;
+  overflow-y: auto;
+}
+.recent-row-compact {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s2) var(--s3);
+  background: var(--slate-100);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  text-align: left;
+  width: 100%;
+  transition: background 0.15s;
+}
+.recent-row-compact:hover {
+  background: var(--slate-200);
+}
 
 /* ---------- Hero Section ---------- */
 .hero-section {

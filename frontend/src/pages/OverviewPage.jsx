@@ -74,15 +74,6 @@ export default function OverviewPage({ records, navigate }) {
         </div>
       </div>
 
-      <ol className="flow" aria-label="Screening workflow">
-        {FLOW.map(([title, sub], i) => (
-          <li key={title}>
-            <span className="flow-num">{i + 1}</span>
-            <div><strong>{title}</strong><span>{sub}</span></div>
-          </li>
-        ))}
-      </ol>
-
       <div className="two-col">
         <Card
           title="Recent submissions"
@@ -99,15 +90,15 @@ export default function OverviewPage({ records, navigate }) {
               Claims you screen will show up here with their outcome.
             </EmptyState>
           ) : (
-            <ul className="recent-list">
+            <ul className="recent-list-compact">
               {recent.map((r) => {
                 const s = summarize(r.checks);
                 return (
                   <li key={r.id}>
-                    <button type="button" className="recent-row" onClick={() => navigate(`/results/${encodeURIComponent(r.id)}`)}>
-                      <span className="recent-main">
+                    <button type="button" className="recent-row-compact" onClick={() => navigate(`/results/${encodeURIComponent(r.id)}`)}>
+                      <span style={{ flex: 1, minWidth: 0, fontSize: "13px" }}>
                         <strong>{r.claim.policyNumber}</strong>
-                        <span className="muted small">{r.claim.claimType} · {formatINR(r.claim.claimAmountINR)} · {formatDateTime(r.submittedAt)}</span>
+                        <span className="muted small" style={{ display: "block", fontSize: "11px" }}>{r.claim.claimType} · {formatINR(r.claim.claimAmountINR)}</span>
                       </span>
                       <OutcomeBadge summary={s} />
                     </button>
@@ -118,13 +109,14 @@ export default function OverviewPage({ records, navigate }) {
           )}
         </Card>
 
-        <Card title="Screening checks" icon="layers" description="What runs on every claim.">
-          <ul className="capability-list">
+        <Card title="Screening checks" icon="layers" description="Active detection modules">
+          <ul className="capability-list-compact">
             {CAPABILITIES.map((c) => (
               <li key={c.name}>
-                <div className="cap-icon"><Icon name={c.icon} size={17} /></div>
-                <div className="cap-text"><strong>{c.name}</strong><span>{c.note}</span></div>
-                <span className="badge badge-success">Active</span>
+                <div className="cap-icon-sm"><Icon name={c.icon} size={14} /></div>
+                <div className="cap-text-sm">
+                  <strong>{c.name}</strong>
+                </div>
               </li>
             ))}
           </ul>
