@@ -953,3 +953,31 @@ button.step-button:hover .step-dot { border-color: var(--indigo-500); }
   color: var(--muted);
 }
 
+/* ---------- Architecture Diagram ---------- */
+.architecture-diagram {
+  width: 100%;
+  height: auto;
+  background: var(--slate-100);
+  border-radius: var(--radius);
+  padding: var(--s4);
+}
+.tech-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  padding-top: var(--s4);
+  border-top: 1px solid var(--border);
+}
+.tech-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--indigo-50);
+  color: var(--indigo-600);
+  border: 1px solid var(--indigo-100);
+  border-radius: 99px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+

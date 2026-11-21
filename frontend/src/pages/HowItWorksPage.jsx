@@ -1,4 +1,5 @@
 import Icon from "../components/Icon";
+import ArchitectureDiagram from "../components/ArchitectureDiagram";
 import { Card, PageHeader } from "../components/ui";
 
 const CHECK_INFO = [
@@ -40,8 +41,38 @@ export default function HowItWorksPage() {
       <PageHeader
         eyebrow="HOW IT WORKS"
         title="How screening works"
-        description="What each check does, and what it cannot tell you."
+        description="Multi-layered fraud detection powered by AWS serverless architecture."
       />
+
+      <Card title="System Architecture" icon="layers" className="mt">
+        <ArchitectureDiagram />
+        <div className="tech-stack mt">
+          <div className="tech-badge">
+            <Icon name="layers" size={16} />
+            <span>AWS Lambda</span>
+          </div>
+          <div className="tech-badge">
+            <Icon name="database" size={16} />
+            <span>DynamoDB</span>
+          </div>
+          <div className="tech-badge">
+            <Icon name="upload" size={16} />
+            <span>S3</span>
+          </div>
+          <div className="tech-badge">
+            <Icon name="zap" size={16} />
+            <span>API Gateway</span>
+          </div>
+          <div className="tech-badge">
+            <Icon name="cpu" size={16} />
+            <span>Amazon Bedrock</span>
+          </div>
+          <div className="tech-badge">
+            <Icon name="shield" size={16} />
+            <span>Nova Lite</span>
+          </div>
+        </div>
+      </Card>
 
       <div className="three-col">
         {CHECK_INFO.map((c) => (
