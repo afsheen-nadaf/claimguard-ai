@@ -1,48 +1,46 @@
-/* ---------- Design tokens - Teal SaaS Theme ---------- */
+/* ---------- Design tokens - Modern SaaS Dark Theme ---------- */
 :root {
-  /* Core Brand Colors - Teal Theme */
-  --brand-darkest: #092328;
-  --brand-dark: #12544F;
-  --brand-primary: #2A835F;
-  --brand-light: #8BBB92;
+  /* Core backgrounds - Pure dark with subtle warmth */
+  --bg: #0a0a0b;
+  --surface: #18181b;
+  --surface-elevated: #27272a;
 
-  /* Derived teal shades */
-  --teal-950: #051418;
-  --teal-900: #092328;
-  --teal-800: #0e3138;
-  --teal-700: #12544F;
-  --teal-600: #1a6e67;
-  --teal-500: #2A835F;
-  --teal-400: #3da885;
-  --teal-300: #5fc39f;
-  --teal-200: #8BBB92;
-  --teal-100: #b8d9c4;
-  --teal-50: #e5f4ed;
+  /* Borders - Subtle with good contrast */
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.12);
 
-  /* System colors */
-  --bg: #092328;
-  --surface: #12544F;
-  --surface-elevated: #1a6e67;
-  --border: rgba(139, 187, 146, 0.15);
-  --text: #e5f4ed;
-  --text-secondary: #b8d9c4;
-  --muted: #8BBB92;
+  /* Text hierarchy */
+  --text: #fafafa;
+  --text-secondary: #d4d4d8;
+  --muted: #a1a1aa;
 
-  /* Status colors with teal tints */
-  --green-50: rgba(42, 131, 95, 0.1);
-  --green-100: rgba(42, 131, 95, 0.2);
-  --green-200: rgba(42, 131, 95, 0.3);
-  --green-600: #2A835F;
-  --green-700: #1f6046;
+  /* Primary accent - Modern purple/blue */
+  --primary: #8b5cf6;
+  --primary-hover: #a78bfa;
+  --primary-light: #c4b5fd;
+
+  /* Accent shades */
+  --indigo-50: rgba(139, 92, 246, 0.08);
+  --indigo-100: rgba(139, 92, 246, 0.15);
+  --indigo-500: #8b5cf6;
+  --indigo-600: #a78bfa;
+  --indigo-700: #c4b5fd;
+
+  /* Status colors - High contrast */
+  --green-50: rgba(34, 197, 94, 0.1);
+  --green-100: rgba(34, 197, 94, 0.15);
+  --green-200: rgba(34, 197, 94, 0.25);
+  --green-600: #22c55e;
+  --green-700: #16a34a;
 
   --amber-50: rgba(251, 191, 36, 0.1);
   --amber-100: rgba(251, 191, 36, 0.15);
   --amber-200: rgba(251, 191, 36, 0.25);
   --amber-300: #fcd34d;
-  --amber-600: #fbbf24;
-  --amber-700: #f59e0b;
-  --amber-800: #d97706;
-  --amber-900: #b45309;
+  --amber-600: #f59e0b;
+  --amber-700: #d97706;
+  --amber-800: #ca8a04;
+  --amber-900: #a16207;
 
   --red-50: rgba(239, 68, 68, 0.1);
   --red-200: rgba(239, 68, 68, 0.25);
@@ -57,37 +55,34 @@
   --violet-600: #8b5cf6;
   --violet-700: #7c3aed;
 
-  /* Accent mappings */
-  --indigo-50: rgba(42, 131, 95, 0.08);
-  --indigo-100: rgba(42, 131, 95, 0.15);
-  --indigo-500: #2A835F;
-  --indigo-600: #3da885;
-  --indigo-700: #5fc39f;
-
-  /* Neutral grays with teal tint */
-  --slate-25: #0a1214;
-  --slate-50: #0f1b1f;
-  --slate-100: #162e33;
-  --slate-200: #1f4247;
-  --slate-300: #2d6068;
-  --slate-400: #6b8e93;
-  --slate-500: #8BBB92;
-  --slate-600: #b8d9c4;
-  --slate-700: #d4e8dc;
-  --slate-800: #1a3036;
-  --slate-900: #e5f4ed;
+  /* Neutral grays - Clean slate */
+  --slate-25: #0a0a0b;
+  --slate-50: #18181b;
+  --slate-100: #27272a;
+  --slate-200: #3f3f46;
+  --slate-300: #52525b;
+  --slate-400: #71717a;
+  --slate-500: #a1a1aa;
+  --slate-600: #d4d4d8;
+  --slate-700: #e4e4e7;
+  --slate-800: #27272a;
+  --slate-900: #fafafa;
 
   /* Legacy mappings */
-  --navy-950: var(--teal-950);
-  --navy-900: var(--teal-900);
-  --navy-800: var(--teal-800);
-  --navy-700: var(--teal-700);
+  --navy-950: #09090b;
+  --navy-900: #18181b;
+  --navy-800: #27272a;
+  --navy-700: #3f3f46;
   --good-500: var(--green-600);
   --good-600: var(--green-700);
   --warn-500: var(--amber-600);
   --warn-600: var(--amber-700);
   --bad-500: var(--red-600);
   --bad-600: var(--red-700);
+
+  --teal-300: var(--primary-light);
+  --teal-200: var(--primary-hover);
+  --teal-950: var(--bg);
 
   --radius-sm: 9px;
   --radius: 13px;
@@ -101,18 +96,18 @@
   --s6: 24px;
   --s8: 32px;
 
-  --shadow-sm: 0 2px 8px rgba(5, 20, 24, 0.5);
-  --shadow: 0 4px 20px rgba(5, 20, 24, 0.7);
-  --shadow-lg: 0 8px 32px rgba(5, 20, 24, 0.8);
-  --shadow-glow: 0 0 24px rgba(42, 131, 95, 0.2);
-  --shadow-glow-hover: 0 0 32px rgba(42, 131, 95, 0.3);
-  --focus: 0 0 0 3px rgba(42, 131, 95, 0.4);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.5);
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.7);
+  --shadow-glow: 0 0 24px rgba(139, 92, 246, 0.15);
+  --shadow-glow-hover: 0 0 32px rgba(139, 92, 246, 0.25);
+  --focus: 0 0 0 3px rgba(139, 92, 246, 0.4);
 
   /* Glass effects */
-  --glass-bg: rgba(18, 84, 79, 0.6);
-  --glass-bg-elevated: rgba(26, 110, 103, 0.7);
-  --glass-border: rgba(139, 187, 146, 0.2);
-  --glass-border-hover: rgba(139, 187, 146, 0.35);
+  --glass-bg: rgba(24, 24, 27, 0.6);
+  --glass-bg-elevated: rgba(39, 39, 42, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-border-hover: rgba(139, 92, 246, 0.3);
 
   --font: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
