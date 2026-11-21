@@ -1,3 +1,4 @@
+import toast from "react-hot-toast";
 import Icon from "../components/Icon";
 import Stepper from "../components/Stepper";
 import { Callout, Card, PageHeader } from "../components/ui";
@@ -13,6 +14,7 @@ export default function NewClaimPage({ draft, onScreeningReady, navigate }) {
 
   function submit() {
     draft.submit((payload) => {
+      toast.success("Claim submitted! Running screening checks...");
       onScreeningReady(payload);
       navigate(`/results/${encodeURIComponent(payload.claimId)}`);
     });

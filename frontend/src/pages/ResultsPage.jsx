@@ -1,4 +1,5 @@
 import { useState } from "react";
+import toast from "react-hot-toast";
 import Icon from "../components/Icon";
 import Stepper from "../components/Stepper";
 import RiskScoreMeter from "../components/RiskScoreMeter";
@@ -43,9 +44,10 @@ export default function ResultsPage({ record, onRetry, navigate }) {
     try {
       await navigator.clipboard.writeText(record.id);
       setCopied(true);
+      toast.success("Claim ID copied to clipboard");
       setTimeout(() => setCopied(false), 1800);
     } catch {
-      /* clipboard unavailable; the ID is still visible on screen */
+      toast.error("Could not copy to clipboard");
     }
   }
 

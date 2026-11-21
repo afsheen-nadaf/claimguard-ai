@@ -1,4 +1,5 @@
 import AppShell from "./components/AppShell";
+import ToastContainer from "./components/Toast";
 import { useClaimDraft } from "./hooks/useClaimDraft";
 import { useRoute } from "./hooks/useRoute";
 import { useScreenings } from "./hooks/useScreenings";
@@ -43,8 +44,11 @@ export default function App() {
   }
 
   return (
-    <AppShell route={route} sessionCount={screenings.records.length}>
-      {page}
-    </AppShell>
+    <>
+      <AppShell route={route} sessionCount={screenings.records.length}>
+        {page}
+      </AppShell>
+      <ToastContainer />
+    </>
   );
 }
