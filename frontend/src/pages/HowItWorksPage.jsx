@@ -44,7 +44,7 @@ export default function HowItWorksPage() {
         description="Multi-layered fraud detection powered by AWS serverless architecture."
       />
 
-      <Card title="System Architecture" icon="layers" className="mt">
+      <Card title="System Architecture" icon="layers" className="mt mb-12">
         <ArchitectureDiagram />
         <div className="tech-stack mt">
           <div className="tech-badge">
@@ -99,10 +99,6 @@ export default function HowItWorksPage() {
             <li>Image forensics and AI-generation signals can be wrong, and missing metadata is not evidence of tampering.</li>
             <li>It never decides a claim. A person reviews every flagged result.</li>
           </ul>
-          <div className="callout callout-info inline-callout">
-            <Icon name="lock" size={18} />
-            <div className="callout-body">Location and description are held for reviewer context only. They are not sent to any screening check.</div>
-          </div>
         </Card>
       </div>
     </>

@@ -19,10 +19,12 @@ export const ENDPOINTS = {
   analyzeImage: ANALYZE_IMAGE_URL,
   extractDocument: `${API_BASE}/claims/extract-document`,
   validateEvidence: `${API_BASE}/claims/validate-evidence`,
+  fetchHistory: `${API_BASE}/claims/history`,
 };
 
 export const UPLOAD_RULES = {
   maxBytes: 10 * 1024 * 1024,
+  maxImages: 2,
   allowedTypes: ["application/pdf", "image/jpeg", "image/png"],
   allowedExtensions: [".pdf", ".jpg", ".jpeg", ".png"],
   extensionToType: {

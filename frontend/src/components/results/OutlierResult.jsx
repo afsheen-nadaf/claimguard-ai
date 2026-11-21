@@ -8,10 +8,14 @@ export default function OutlierResult({ result, claim }) {
   const amount = claim?.claimAmountINR ?? m.submittedAmount;
 
   return (
-    <>
-      <p className="result-headline">{result.label}</p>
-      {result.message && <p>{result.message}</p>}
-      {result.rawStatus && <p className="muted small">API status: <code>{result.rawStatus}</code></p>}
+    <div className="space-y-6">
+      <p className="text-lg font-semibold text-white">{result.label}</p>
+      {result.message && <p className="text-purple-200">{result.message}</p>}
+      {result.rawStatus && (
+        <p className="text-sm text-purple-300">
+          API status: <code className="px-2 py-1 bg-purple-950 rounded text-purple-200 border border-purple-800">{result.rawStatus}</code>
+        </p>
+      )}
 
       <KeyValueList
         items={[
@@ -30,14 +34,16 @@ export default function OutlierResult({ result, claim }) {
 
       {result.details.length > 0 && (
         <div>
-          <div className="mini-label">Additional details</div>
+          <div className="text-xs font-bold tracking-wider text-purple-400 uppercase mb-3">
+            Additional details
+          </div>
           <KeyValueList items={result.details} />
         </div>
       )}
 
-      <p className="muted small">
+      <p className="text-xs text-purple-400 leading-relaxed">
         An amount outlier is an anomaly indicator. Unusual amounts are often legitimate, and it is not proof of fraud.
       </p>
-    </>
+    </div>
   );
 }

@@ -1,16 +1,28 @@
 
+import { useState } from "react";
 import Icon from "../Icon";
 import { Callout } from "../ui";
 import { formatDate, formatINR } from "../../lib/format";
 
 export default function DuplicateResult({ result, claimId }) {
+  const [showImageDetails, setShowImageDetails] = useState(false);
+  const [showImageIds, setShowImageIds] = useState({});
+  const [showAllMatches, setShowAllMatches] = useState(false);
   const matches = result?.matches || [];
   const imageMatches = result?.imageMatches || [];
+
+  // Calculate summary metrics for image matches
+  const avgSimilarity = imageMatches.length > 0
+    ? Math.round(imageMatches.reduce((sum, m) => sum + (m.similarityPercent || 0), 0) / imageMatches.length)
+    : 0;
+  const avgHamming = imageMatches.length > 0
+    ? Math.round(imageMatches.reduce((sum, m) => sum + (m.hammingDistance || 0), 0) / imageMatches.length)
+    : 0;
 
   return (
     <>
       <p className="result-headline">{result?.label}</p>
-      {result?.message && <p>{result.message}</p>}
+      {result?.message && <p className="text-[#f5f0e8]">{result.message}</p>}
 
       {result?.kind === "no_match" && (
         <p className="muted small">
@@ -35,7 +47,7 @@ export default function DuplicateResult({ result, claimId }) {
 
       {/* Section 1: Traditional claim matching */}
       <div className="duplicate-sub-section">
-        <div className="mini-label">1. Traditional Claim Matching (Policy / Date / Amount)</div>
+        <div className="mini-label text-[#f5f0e8]">1. Traditional Claim Matching (Policy / Date / Amount)</div>
 
         {result?.matchType && (
           <p className="small">
@@ -66,7 +78,7 @@ export default function DuplicateResult({ result, claimId }) {
                 </thead>
 
                 <tbody>
-                  {matches.map((m, i) => (
+                  {(showAllMatches ? matches : matches.slice(0, 1)).map((m, i) => (
                     <tr key={`${m.claimId || "match"}-${i}`}>
                       <td data-label="Claim ID">
                         <code>{m.claimId || "—"}</code>
@@ -87,6 +99,17 @@ export default function DuplicateResult({ result, claimId }) {
                 </tbody>
               </table>
             </div>
+            {matches.length > 1 && (
+              <div className="text-center mt-4 mb-6">
+                <button
+                  type="button"
+                  onClick={() => setShowAllMatches(!showAllMatches)}
+                  className="text-xs text-purple-300 hover:text-purple-100 transition-colors lowercase tracking-wide font-semibold"
+                >
+                  {showAllMatches ? '− show less' : `+ show ${matches.length - 1} more ${matches.length - 1 === 1 ? 'match' : 'matches'}`}
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <p className="muted small">
@@ -97,110 +120,107 @@ export default function DuplicateResult({ result, claimId }) {
 
       {/* Section 2: Image-based duplicate detection */}
       <div className="duplicate-sub-section">
-        <div className="mini-label">2. Image-Based Duplicate Detection (Perceptual Hash)</div>
+        <div className="mini-label text-[#f5f0e8]">2. Image-Based Duplicate Detection (Perceptual Hash)</div>
 
         {imageMatches.length > 0 ? (
           <div className="image-matches-container">
-            <div className="image-match-cards">
-              {imageMatches.map((m, i) => (
-                <div
-                  key={`${m.matchedImageId || m.claimId || "image"}-${i}`}
-                  className="image-match-card"
-                >
-                  <div className="image-match-head">
-                    <span className="badge badge-warning">
-                      <Icon name="alert" size={13} />
-                      Potential Image Duplicate
-                    </span>
-                    <span className="image-match-source muted small">
-                      Source: <code>{m.source || "IMAGE_HASH"}</code>
-                    </span>
-                  </div>
+            {/* Show only first card initially */}
+            <div className="image-match-cards space-y-6">
+              {(showImageDetails ? imageMatches : [imageMatches[0]]).map((m, i) => (
+                    <div
+                      key={`${m.matchedImageId || m.claimId || "image"}-${i}`}
+                      className="image-match-card"
+                    >
+                      <div className="image-match-head">
+                        <span className="badge badge-warning">
+                          <Icon name="alert" size={13} />
+                          Potential Image Duplicate
+                        </span>
+                        <span className="image-match-source muted small">
+                          Source: <code>{m.source || "IMAGE_HASH"}</code>
+                        </span>
+                      </div>
 
-                  <div className="image-match-stats">
-                    <div className="image-match-stat">
-                      <span className="stat-label">Similarity</span>
-                      <strong className="stat-val highlight">
-                        {m.similarityPercent != null ? `${m.similarityPercent}%` : "—"}
-                      </strong>
-                    </div>
+                      <div className="image-match-stats">
+                        <div className="image-match-stat">
+                          <span className="stat-label">Similarity</span>
+                          <strong className="stat-val highlight">
+                            {m.similarityPercent != null ? `${m.similarityPercent}%` : "—"}
+                          </strong>
+                        </div>
 
-                    <div className="image-match-stat">
-                      <span className="stat-label">Hamming Distance</span>
-                      <strong className="stat-val">
-                        {m.hammingDistance ?? "—"} <span className="muted small">/ 64</span>
-                      </strong>
-                    </div>
+                        <div className="image-match-stat">
+                          <span className="stat-label">Hamming Distance</span>
+                          <strong className="stat-val">
+                            {m.hammingDistance ?? "—"} <span className="muted small">/ 64</span>
+                          </strong>
+                        </div>
 
-                    <div className="image-match-stat">
-                      <span className="stat-label">Existing Claim</span>
-                      <strong className="stat-val">
-                        <code>{m.claimId || "—"}</code>
-                      </strong>
-                    </div>
-                  </div>
+                        <div className="image-match-stat">
+                          <span className="stat-label">Existing Claim</span>
+                          <strong className="stat-val">
+                            <code>{m.claimId || "—"}</code>
+                          </strong>
+                        </div>
+                      </div>
 
-                  {(m.matchedImageId || m.uploadedImageKey) && (
-                    <div className="image-match-details">
-                      {m.matchedImageId && (
-                        <div>
-                          <span className="muted small">Matched image ID:</span>{" "}
-                          <code>{m.matchedImageId}</code>
+                      {(m.matchedImageId || m.uploadedImageKey) && (
+                        <div className="image-match-details">
+                          {showImageIds[i] ? (
+                            <>
+                              {m.matchedImageId && (
+                                <div>
+                                  <span className="muted small">Matched image ID:</span>{" "}
+                                  <code className="text-xs">{m.matchedImageId}</code>
+                                </div>
+                              )}
+                              {m.uploadedImageKey && (
+                                <div>
+                                  <span className="muted small">Uploaded image key:</span>{" "}
+                                  <code className="text-xs">{m.uploadedImageKey}</code>
+                                </div>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => setShowImageIds({...showImageIds, [i]: false})}
+                                className="text-xs text-amber-300 hover:text-amber-100 transition-colors lowercase tracking-wide font-semibold mt-2"
+                              >
+                                − hide image IDs
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setShowImageIds({...showImageIds, [i]: true})}
+                              className="text-xs text-amber-300 hover:text-amber-100 transition-colors lowercase tracking-wide font-semibold"
+                            >
+                              + show image IDs
+                            </button>
+                          )}
                         </div>
                       )}
-                      {m.uploadedImageKey && (
-                        <div>
-                          <span className="muted small">Uploaded image key:</span>{" "}
-                          <code>{m.uploadedImageKey}</code>
-                        </div>
-                      )}
                     </div>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            <div className="table-wrap mt">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Existing Claim ID</th>
-                    <th className="num">Similarity</th>
-                    <th className="num">Hamming Distance</th>
-                    <th>Matched Image ID</th>
-                    <th>Source</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {imageMatches.map((m, i) => (
-                    <tr key={`tbl-${m.matchedImageId || m.claimId || "image"}-${i}`}>
-                      <td data-label="Existing Claim ID">
-                        <code>{m.claimId || "—"}</code>
-                      </td>
-                      <td data-label="Similarity" className="num">
-                        <strong>
-                          {m.similarityPercent != null ? `${m.similarityPercent}%` : "—"}
-                        </strong>
-                      </td>
-                      <td data-label="Hamming Distance" className="num">
-                        {m.hammingDistance ?? "—"} / 64
-                      </td>
-                      <td data-label="Matched Image ID">
-                        {m.matchedImageId ? <code>{m.matchedImageId}</code> : "—"}
-                      </td>
-                      <td data-label="Source">{m.source || "IMAGE_HASH"}</td>
-                    </tr>
                   ))}
-                </tbody>
-              </table>
             </div>
+
+            {/* Show More / Show Less Link */}
+            {imageMatches.length > 1 && (
+              <div className="text-center mt-2 mb-6">
+                <button
+                  type="button"
+                  onClick={() => setShowImageDetails(!showImageDetails)}
+                  className="text-xs text-amber-300 hover:text-amber-100 transition-colors lowercase tracking-wide font-semibold"
+                >
+                  {showImageDetails ? '− show less' : `+ show ${imageMatches.length - 1} more`}
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="empty-inline-state">
             <Icon name="checkCircle" size={18} className="text-success" />
             <div>
-              <strong>No Image Matches Found</strong>
+              <strong className="text-[#f5f0e8]">No Image Matches Found</strong>
               <p className="muted small">
                 Perceptual hashing (pHash) found no visual duplicates matching reference or
                 previously submitted claim images within the similarity threshold.

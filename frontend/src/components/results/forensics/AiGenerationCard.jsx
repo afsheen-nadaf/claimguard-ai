@@ -181,7 +181,7 @@ export default function AiGenerationCard({ aiGeneration, doc }) {
               </div>
             </div>
 
-            <div className="ai-signal-notice mt-xs">
+            <div className="ai-signal-notice mt-xs" style={{ maxWidth: '100%', wordWrap: 'break-word' }}>
               <Icon name="info" size={14} />
               <span>
                 A higher score indicates a stronger AI-generation signal from Smaug. This metric reflects model feature alignment, <strong>not</strong> a calibrated mathematical probability.
@@ -195,7 +195,7 @@ export default function AiGenerationCard({ aiGeneration, doc }) {
               <KeyValueList items={items} />
 
               {/* Model limitations callout */}
-              <div className="ai-limitations-box mt">
+              <div className="ai-limitations-box mt" style={{ maxWidth: '100%', overflow: 'hidden' }}>
                 <Callout
                   tone={percentage >= 50 ? "warning" : "info"}
                   icon={percentage >= 50 ? "alert" : "shield"}

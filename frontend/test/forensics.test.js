@@ -309,7 +309,7 @@ describe("Forensics Data Helpers", () => {
       message: "No JPG, JPEG or PNG images were uploaded for this claim.",
     };
     const interpretedSkipped = interpretForensics(skipped);
-    assert.equal(interpretedSkipped.state, "pass");
+    assert.equal(interpretedSkipped.state, "skipped");
     assert.equal(interpretedSkipped.kind, "skipped");
   });
 

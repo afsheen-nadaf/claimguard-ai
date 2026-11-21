@@ -22,7 +22,8 @@ import {
 export const CHECKS = {
   policy: {
     key: "policy",
-    title: "Policy validation",
+    title: "Policy Validation",
+    description: "Validates policy details against deterministic rules and requirements.",
     icon: "clipboard",
 
     run: (_claimId, claim) => validatePolicy(claim),
@@ -32,7 +33,8 @@ export const CHECKS = {
 
   duplicate: {
     key: "duplicate",
-    title: "Duplicate-claim detection",
+    title: "Duplicate-Claim Detection",
+    description: "Compares claim details and images with earlier submissions to detect duplicates.",
     icon: "copy",
 
     run: (claimId, claim, documents) =>
@@ -43,7 +45,8 @@ export const CHECKS = {
 
   outlier: {
     key: "outlier",
-    title: "Claim-amount outlier detection",
+    title: "Claim-Amount Outlier Detection",
+    description: "Statistical analysis to identify unusually high or low claim amounts.",
     icon: "sliders",
 
     run: (_claimId, claim) => checkOutlier(claim),
@@ -53,7 +56,8 @@ export const CHECKS = {
 
   forensics: {
     key: "forensics",
-    title: "Image forensics analysis",
+    title: "Image Forensics Analysis",
+    description: "Deep analysis of image metadata, compression, and AI-generation signals.",
     icon: "image",
 
     run: (claimId, _claim, documents) =>
@@ -64,7 +68,8 @@ export const CHECKS = {
 
   evidence: {
     key: "evidence",
-    title: "Evidence relevance validation",
+    title: "Evidence Relevance Validation",
+    description: "Verifies that uploaded documents and photos match the reported incident.",
     icon: "search",
 
     run: (claimId, claim, documents) =>
@@ -75,7 +80,8 @@ export const CHECKS = {
 
   consistency: {
     key: "consistency",
-    title: "Cross-document consistency",
+    title: "Cross-Document Consistency",
+    description: "Compares details extracted from documents to flag mismatched information.",
     icon: "layers",
 
     // Pure frontend check — no backend endpoint. Compares extractedData

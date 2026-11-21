@@ -6,6 +6,7 @@
 .aws/
 *.pem
 *.key
+/rootkey.csv
 
 # Python
 __pycache__/

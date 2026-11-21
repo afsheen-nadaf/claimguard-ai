@@ -28,7 +28,7 @@ function reasonFor(key, check) {
   return { state: r.state, text: r.label };
 }
 
-const STATE_ICON = { pass: "checkCircle", review: "alert", inconclusive: "info", error: "xCircle", running: "clock" };
+const STATE_ICON = { pass: "checkCircle", review: "alert", inconclusive: "info", skipped: "info", error: "xCircle", running: "clock" };
 
 export default function SummaryPanel({ summary, checks }) {
   const { counts } = summary;
@@ -50,6 +50,7 @@ export default function SummaryPanel({ summary, checks }) {
         <div className="count count-pass"><dt>Passed</dt><dd>{counts.passed}</dd></div>
         <div className="count count-review"><dt>Need review</dt><dd>{counts.review}</dd></div>
         <div className="count count-fail"><dt>Failed or incomplete</dt><dd>{counts.incomplete}</dd></div>
+        {counts.skipped > 0 && <div className="count count-skipped"><dt>Skipped (not passed)</dt><dd>{counts.skipped}</dd></div>}
         {counts.pending > 0 && <div className="count count-pending"><dt>Running</dt><dd>{counts.pending}</dd></div>}
       </dl>
 
@@ -93,8 +94,12 @@ export default function SummaryPanel({ summary, checks }) {
           </div>
         ) : (
           <div className="triage-empty">
-            <Icon name="checkCircle" size={18} />
-            <p>All completed checks passed. Continue standard handling; this is not a fraud determination.</p>
+            <Icon name={counts.skipped > 0 ? "info" : "checkCircle"} size={18} />
+            <p>
+              {counts.skipped > 0
+                ? `All applicable checks passed; ${counts.skipped} check${counts.skipped === 1 ? " was" : "s were"} skipped. This is not a fraud determination.`
+                : "All completed checks passed. Continue standard handling; this is not a fraud determination."}
+            </p>
           </div>
         )}
       </section>

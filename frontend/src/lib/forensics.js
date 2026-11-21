@@ -1,6 +1,6 @@
 // Image forensics normalization and status helpers.
 // Handles fields from the AWS Lambda image-forensics service (metadata, compression, and quality analyzers).
-// Supports all backend states: Not started, Analyzing, Completed, Partially completed, Failed, and Unavailable.
+// Supports all backend states, including skipped analysis when no photos are present.
 
 import { formatBytes } from "./format.js";
 
@@ -90,8 +90,8 @@ export function extractForensicsOverview(record) {
     analysisState = "error";
     analysisStateLabel = "Failed";
   } else if (rawForensics?.skipped || imagesSubmitted === 0) {
-    analysisState = "idle";
-    analysisStateLabel = "Unavailable (No images)";
+    analysisState = "skipped";
+    analysisStateLabel = "Skipped (No images)";
   } else if (rawForensics?.analysisStatus === "COMPLETED") {
     analysisState = hasReviewRequired ? "review" : "pass";
     analysisStateLabel = hasReviewRequired ? "Review recommended" : "Completed";

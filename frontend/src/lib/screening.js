@@ -501,11 +501,19 @@ export function interpretForensics(response) {
     };
   }
 
-  if (response.skipped) {
+  const rawStatus = response.analysisStatus || "UNKNOWN";
+  const images = Array.isArray(response.images) ? response.images : [];
+  const imagesSubmitted = response.imagesSubmitted ?? images.length;
+
+  if (
+    response.skipped ||
+    rawStatus === "SKIPPED" ||
+    (response.imagesSubmitted !== undefined && imagesSubmitted === 0)
+  ) {
     return {
-      state: "pass",
+      state: "skipped",
       kind: "skipped",
-      label: response.message || "No image files submitted for forensics",
+      label: "Skipped (no images uploaded)",
       rawStatus: "SKIPPED",
       images: [],
       imagesSubmitted: 0,
@@ -516,9 +524,6 @@ export function interpretForensics(response) {
     };
   }
 
-  const rawStatus = response.analysisStatus || "UNKNOWN";
-  const images = Array.isArray(response.images) ? response.images : [];
-  const imagesSubmitted = response.imagesSubmitted ?? images.length;
   const analysesCompleted = response.analysesCompleted ?? 0;
   const analysesWithErrors = response.analysesWithErrors ?? 0;
   const disclaimer = response.disclaimer ?? null;
@@ -733,6 +738,13 @@ export function interpretEvidence(response) {
 // ---------- overall summary ----------
 
 export const SUMMARY_COPY = {
+  unavailable: {
+    tone: "neutral",
+    title: "Results unavailable",
+    text: "This history record does not include detailed screening check results.",
+    next: "Open the claim in its original screening workspace to review the detailed results.",
+  },
+
   progress: {
     tone: "info",
     title: "Screening in progress",
@@ -769,13 +781,34 @@ export const SUMMARY_COPY = {
   },
 };
 
-export function summarize(checks) {
-  const entries = CHECK_ORDER.map((key) => checks[key]).filter(Boolean);
+export function summarize(checks = {}) {
+  const entries = CHECK_ORDER.map((key) => checks?.[key]).filter(Boolean);
 
   const total = entries.length;
 
+  if (total === 0) {
+    return {
+      key: "unavailable",
+      ...SUMMARY_COPY.unavailable,
+      counts: {
+        total: 0,
+        passed: 0,
+        review: 0,
+        incomplete: 0,
+        errored: 0,
+        inconclusive: 0,
+        pending: 0,
+        skipped: 0,
+      },
+    };
+  }
+
   const pending = entries.filter(
     (c) => c.status === "idle" || c.status === "running"
+  ).length;
+
+  const skipped = entries.filter(
+    (c) => c.status === "done" && c.result?.state === "skipped"
   ).length;
 
   const passed = entries.filter(
@@ -813,6 +846,19 @@ export function summarize(checks) {
   return {
     key,
     ...SUMMARY_COPY[key],
+    ...(skipped > 0
+      ? {
+          title:
+            key === "clear"
+              ? `No flags · ${skipped} skipped`
+              : SUMMARY_COPY[key].title,
+          text: `${SUMMARY_COPY[key].text} ${skipped} check${skipped === 1 ? " was" : "s were"} skipped because required input was not provided; skipped checks are not counted as passes.`,
+          next:
+            key === "clear"
+              ? "Continue standard claims handling. Image forensics can only assess a claim when photos are available."
+              : SUMMARY_COPY[key].next,
+        }
+      : {}),
     counts: {
       total,
       passed,
@@ -821,16 +867,64 @@ export function summarize(checks) {
       errored,
       inconclusive,
       pending,
+      skipped,
     },
   };
 }
 
-export function getChecksNeedingAttention(checks) {
+export function normalizeSkippedForensics(record) {
+  const checks = record?.checks || {};
+  const forensics = checks.forensics;
+  const result = forensics?.result || {};
+  const documents = Array.isArray(record?.documents) ? record.documents : null;
+  const hasImages = documents?.some((file) =>
+    ["image/jpeg", "image/png"].includes(file.type) ||
+    /\.(jpe?g|png)$/i.test(file.name || "")
+  );
+  const skippedReported =
+    result.state === "skipped" ||
+    result.kind === "skipped" ||
+    result.skipped === true ||
+    forensics?.raw?.skipped === true ||
+    forensics?.raw?.analysisStatus === "SKIPPED";
+  const legacyPassWithoutImages =
+    result.state === "pass" &&
+    documents !== null &&
+    !hasImages;
+
+  if (
+    forensics?.status !== "done" ||
+    (!skippedReported && !legacyPassWithoutImages) ||
+    result.state === "skipped"
+  ) {
+    return checks;
+  }
+
+  return {
+    ...checks,
+    forensics: {
+      ...forensics,
+      result: {
+        ...result,
+        state: "skipped",
+        kind: "skipped",
+        skipped: true,
+        label: "Skipped (no images uploaded)",
+      },
+    },
+  };
+}
+
+export function summarizeRecord(record) {
+  return summarize(normalizeSkippedForensics(record));
+}
+
+export function getChecksNeedingAttention(checks = {}) {
   const priority = { review: 0, error: 1, inconclusive: 2 };
 
   return CHECK_ORDER
     .map((key) => {
-      const check = checks[key];
+      const check = checks?.[key];
       const state = check?.status === "error"
         ? "error"
         : check?.status === "done"
@@ -856,11 +950,13 @@ export function filterHistoryRecords(records, { query = "", outcome = "all", sor
 
       if (!matchesQuery || outcome === "all") return matchesQuery;
 
-      const summaryKey = summarize(record.checks).key;
-      if (outcome === "clear") return summaryKey === "clear";
-      if (outcome === "review") return summaryKey === "review";
-      if (outcome === "incomplete") return summaryKey === "partial" || summaryKey === "failed";
-      if (outcome === "progress") return summaryKey === "progress";
+      const summary = summarizeRecord(record);
+      if (outcome === "clear") return summary.key === "clear" && summary.counts.skipped === 0;
+      if (outcome === "skipped") return summary.counts.skipped > 0;
+      if (outcome === "review") return summary.key === "review";
+      if (outcome === "incomplete") return summary.key === "partial" || summary.key === "failed";
+      if (outcome === "progress") return summary.key === "progress";
+      if (outcome === "unavailable") return summary.key === "unavailable";
       return true;
     })
     .sort((a, b) => {

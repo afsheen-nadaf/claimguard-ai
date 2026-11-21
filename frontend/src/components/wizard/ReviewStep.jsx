@@ -3,6 +3,7 @@ import { Callout, Card, KeyValueList } from "../ui";
 import FileList from "./FileList";
 import { formatDate, formatINR } from "../../lib/format";
 import { FIELD_ORDER } from "../../lib/validation";
+import { UPLOAD_RULES } from "../../api/config";
 
 const FIELD_LABELS = {
   claimType: "Claim type",
@@ -129,19 +130,21 @@ function ExtractionSummary({ files, prefilledFields }) {
 
 export default function ReviewStep({ draft, onBack, onEdit, onSubmit }) {
   const { form, errors, files, submitError, prefilledFields } = draft;
+  const documents = files.filter((file) => file.category !== "image");
+  const images = files.filter((file) => file.category === "image");
   const missing = FIELD_ORDER.filter((name) => errors[name]);
   const noFiles = files.length === 0;
   const stillUploading = files.some(
     (f) => f.status === "uploading" || f.extractionStatus === "extracting"
   );
   const hasFailed = files.some((f) => f.status === "error");
-  const blocked = missing.length > 0 || noFiles || stillUploading;
+  const blocked = missing.length > 0 || noFiles || stillUploading || hasFailed;
 
   return (
     <Card
       title="Review before submitting"
       icon="checkCircle"
-      description="Confirm everything below. Documents are already uploaded — review extracted fields and run screening."
+      description="Confirm the claim details and uploaded evidence. Photos are optional when they do not apply."
     >
       {blocked && (
         <Callout tone="warning">
@@ -155,14 +158,27 @@ export default function ReviewStep({ draft, onBack, onEdit, onSubmit }) {
             ))}
             {noFiles && (
               <li>
-                No supporting documents added.{" "}
-                <button type="button" className="link-button" onClick={() => onEdit(1)}>Add documents</button>
+                Add at least one supporting PDF or photo.{" "}
+                <button type="button" className="link-button" onClick={() => onEdit(1)}>Add a PDF</button>
+                {" or "}
+                <button type="button" className="link-button" onClick={() => onEdit(2)}>Add photos</button>
               </li>
             )}
             {stillUploading && (
               <li>
-                Some documents are still uploading or extracting.{" "}
-                <button type="button" className="link-button" onClick={() => onEdit(1)}>View documents</button>
+                Some files are still uploading or extracting. Please wait before submitting.
+              </li>
+            )}
+            {hasFailed && (
+              <li>
+                One or more uploads failed.{" "}
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={() => onEdit(files.find((file) => file.status === "error")?.category === "image" ? 2 : 1)}
+                >
+                  Review failed uploads
+                </button>
               </li>
             )}
           </ul>
@@ -177,27 +193,48 @@ export default function ReviewStep({ draft, onBack, onEdit, onSubmit }) {
           <ClaimSummary form={form} />
         </div>
         <div>
-          <div className="section-label"><strong>Documents</strong><span className="count-pill">{files.length}</span>
-            <button type="button" className="link-button" onClick={() => onEdit(1)}>Edit</button>
+          <div className="section-label">
+            <strong>Supporting evidence</strong>
+            <span className="count-pill">{files.length}</span>
           </div>
-          {files.length ? <FileList files={files} /> : <p className="muted">No documents added yet.</p>}
+          <div className="stack-sm">
+            <div>
+              <div className="section-label">
+                <strong>PDF documents</strong>
+                <button type="button" className="link-button" onClick={() => onEdit(1)}>Edit</button>
+              </div>
+              {documents.length
+                ? <FileList files={documents} />
+                : <p className="muted small">No PDFs attached.</p>}
+            </div>
+            <div>
+              <div className="section-label">
+                <strong>Photos</strong>
+                <span className="count-pill">{images.length}/{UPLOAD_RULES.maxImages}</span>
+                <button type="button" className="link-button" onClick={() => onEdit(2)}>Edit</button>
+              </div>
+              {images.length
+                ? <FileList files={images} />
+                : <p className="muted small">No photos attached; image forensics will be skipped.</p>}
+            </div>
+          </div>
         </div>
       </div>
 
-      <ExtractionSummary files={files} prefilledFields={prefilledFields} />
-
+      <ExtractionSummary files={documents} prefilledFields={prefilledFields} />
+      <br />
       <Callout tone="info">
-        On submit, all screening checks run: policy validation, duplicate detection, amount outlier, image forensics, and evidence relevance. The duplicate check also <strong>registers this claim</strong> for future comparisons.
+        On submit, policy validation, duplicate detection, amount outlier, image forensics, evidence relevance, and consistency checks run. Image forensics is skipped when no photos are attached. Findings are screening indicators for human review, not a fraud determination.
       </Callout>
 
       {submitError && <div className="stack-sm"><Callout tone="danger">{submitError}</Callout></div>}
 
       <div className="form-footer">
-        <button type="button" className="btn btn-secondary" onClick={onBack} disabled={blocked}>
-          <Icon name="arrowLeft" size={17} /> Back to documents
+        <button type="button" className="btn btn-secondary" onClick={onBack}>
+          <Icon name="arrowLeft" size={17} /> Back to photos
         </button>
         <button type="button" className="btn btn-primary" onClick={onSubmit} disabled={blocked}>
-          {hasFailed ? "Retry & screen claim" : "Screen claim"} <Icon name="arrow" size={17} />
+          Screen claim <Icon name="arrow" size={17} />
         </button>
       </div>
     </Card>

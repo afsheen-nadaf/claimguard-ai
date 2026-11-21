@@ -1,6 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CHECK_ORDER, filterHistoryRecords, getChecksNeedingAttention } from "../src/lib/screening.js";
+import {
+  CHECK_ORDER,
+  filterHistoryRecords,
+  getChecksNeedingAttention,
+  interpretForensics,
+  summarizeRecord,
+  summarize,
+} from "../src/lib/screening.js";
 
 function makeChecks(state = "pass") {
   return Object.fromEntries(CHECK_ORDER.map((key) => [
@@ -60,6 +67,64 @@ test("history outcome filters include review, incomplete, and running claims", (
   assert.deepEqual(filterHistoryRecords(records, { outcome: "incomplete" }).map((record) => record.id), ["incomplete", "failed"]);
   assert.deepEqual(filterHistoryRecords(records, { outcome: "progress" }).map((record) => record.id), ["running"]);
   assert.deepEqual(filterHistoryRecords([makeRecord("clear", { policyNumber: "E", submittedAt: 0 })], { outcome: "clear" }).map((record) => record.id), ["clear"]);
+});
+
+test("history records without check details remain unavailable, not clear", () => {
+  const record = makeRecord("aws-record", {
+    policyNumber: "AWS-1",
+    submittedAt: 1,
+    checks: {},
+  });
+
+  assert.equal(summarize(record.checks).key, "unavailable");
+  assert.deepEqual(filterHistoryRecords([record], { outcome: "clear" }), []);
+  assert.deepEqual(
+    filterHistoryRecords([record], { outcome: "unavailable" }).map((item) => item.id),
+    ["aws-record"],
+  );
+});
+
+test("skipped image forensics is not counted as a pass or incomplete result", () => {
+  const checks = makeChecks();
+  checks.forensics.result = interpretForensics({
+    analysisStatus: "COMPLETED",
+    imagesSubmitted: 0,
+  });
+  const record = makeRecord("no-photos", {
+    policyNumber: "NO-PHOTOS",
+    submittedAt: 2,
+    checks,
+  });
+  const summary = summarize(checks);
+
+  assert.equal(summary.key, "clear");
+  assert.equal(summary.counts.passed, CHECK_ORDER.length - 1);
+  assert.equal(summary.counts.skipped, 1);
+  assert.equal(summary.counts.incomplete, 0);
+  assert.match(summary.text, /skipped checks are not counted as passes/);
+  assert.deepEqual(filterHistoryRecords([record], { outcome: "clear" }), []);
+  assert.deepEqual(filterHistoryRecords([record], { outcome: "skipped" }), [record]);
+  assert.equal(interpretForensics({ skipped: true }).state, "skipped");
+});
+
+test("legacy no-photo records with pass-shaped forensics are normalized as skipped", () => {
+  const record = makeRecord("legacy-no-photos", {
+    policyNumber: "NO-PHOTOS",
+    submittedAt: 2,
+  });
+  record.documents = [];
+  record.checks.forensics.result = {
+    state: "pass",
+    kind: "skipped",
+    label: "No image files submitted",
+  };
+
+  const summary = summarizeRecord(record);
+
+  assert.equal(summary.counts.passed, CHECK_ORDER.length - 1);
+  assert.equal(summary.counts.skipped, 1);
+  assert.equal(summary.title, "No flags · 1 skipped");
+  assert.deepEqual(filterHistoryRecords([record], { outcome: "skipped" }), [record]);
 });
 
 test("history sorting is newest-first by default and does not mutate records", () => {

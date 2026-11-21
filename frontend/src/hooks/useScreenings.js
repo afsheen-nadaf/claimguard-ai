@@ -1,32 +1,125 @@
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CHECKS } from "../lib/checks";
 import { CHECK_ORDER } from "../lib/screening";
+import { fetchClaimHistory } from "../api/claims";
 
-// Session-only store of screened claims.
+// Persistent store of screened claims with localStorage backup.
 // Each check runs independently.
+const STORAGE_KEY = "claimguard_screenings";
+
+function loadFromStorage() {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored) return [];
+
+    const records = JSON.parse(stored);
+    if (Array.isArray(records)) return records;
+
+    console.error("[useScreenings] Stored claim history is not an array.");
+    return [];
+  } catch (error) {
+    console.error("[useScreenings] Could not load claim history from storage:", error);
+    return [];
+  }
+}
+
+function saveToStorage(records) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  } catch (error) {
+    console.error("[useScreenings] Could not save claim history to storage:", error);
+  }
+}
+
 export function useScreenings() {
-  const [records, setRecords] = useState([]);
+  const [records, setRecords] = useState(() => {
+    const loaded = loadFromStorage();
+    console.log('[useScreenings] Loaded from storage:', loaded.length, 'records');
+    return loaded;
+  });
+  const [awsFetched, setAwsFetched] = useState(false);
   const inflight = useRef(new Set());
 
-  const patchCheck = (id, key, patch) => {
-    setRecords((rs) =>
-      rs.map((r) =>
-        r.id === id
-          ? {
-              ...r,
-              checks: {
-                ...r.checks,
-                [key]: {
-                  ...r.checks[key],
-                  ...patch,
+  // Persist the resolved state, not the updater function passed to setState.
+  useEffect(() => {
+    saveToStorage(records);
+  }, [records]);
+
+  // Fetch claims from AWS on mount and merge with localStorage.
+  useEffect(() => {
+    if (awsFetched) return;
+
+    const fetchFromAWS = async () => {
+      try {
+        console.log('[useScreenings] Fetching claims from AWS...');
+        const result = await fetchClaimHistory(50);
+        const awsClaims = result.claims || [];
+        console.log('[useScreenings] Fetched from AWS:', awsClaims.length, 'claims');
+
+        if (awsClaims.length > 0) {
+          const fetchedRecords = awsClaims.map((claim) => ({
+            id: claim.claimId,
+            submittedAt: new Date(
+              claim.claimId.split("-")[1] || Date.now()
+            ).getTime(),
+            claim: {
+              policyNumber: claim.policyNumber,
+              claimType: claim.claimType || "Unknown",
+              incidentDate: claim.incidentDate,
+              claimAmountINR: claim.claimAmountINR,
+            },
+            documents: [],
+            checks: {},
+          }));
+
+          setRecords((currentRecords) => {
+            const localIds = new Set(currentRecords.map((record) => record.id));
+            const newClaims = fetchedRecords.filter(
+              (record) => !localIds.has(record.id)
+            );
+
+            if (newClaims.length === 0) return currentRecords;
+
+            console.log('[useScreenings] Merged', newClaims.length, 'new claims from AWS');
+            return [...currentRecords, ...newClaims];
+          });
+        }
+        setAwsFetched(true);
+      } catch (error) {
+        console.error('[useScreenings] Failed to fetch from AWS:', error);
+        setAwsFetched(true); // Don't retry indefinitely
+      }
+    };
+
+    fetchFromAWS();
+  }, [awsFetched]);
+
+  const updateRecords = useCallback((newRecords) => {
+    setRecords(newRecords);
+  }, []);
+
+  const patchCheck = useCallback(
+    (id, key, patch) => {
+      updateRecords((rs) =>
+        rs.map((r) =>
+          r.id === id
+            ? {
+                ...r,
+                checks: {
+                  ...r.checks,
+                  [key]: {
+                    ...r.checks[key],
+                    ...patch,
+                  },
                 },
-              },
-            }
-          : r
-      )
-    );
-  };
+              }
+            : r
+        )
+      );
+    },
+    [updateRecords]
+  );
 
   const runCheck = useCallback(
     async (id, key, claim, documents = []) => {
@@ -69,7 +162,7 @@ export function useScreenings() {
         inflight.current.delete(token);
       }
     },
-    []
+    [patchCheck]
   );
 
   const start = useCallback(
@@ -85,7 +178,7 @@ export function useScreenings() {
         };
       }
 
-      setRecords((rs) => [
+      updateRecords((rs) => [
         {
           id: claimId,
           submittedAt: Date.now(),
@@ -100,7 +193,7 @@ export function useScreenings() {
         runCheck(claimId, key, claim, documents);
       }
     },
-    [runCheck]
+    [runCheck, updateRecords]
   );
 
   // Reuse the original documents and S3 keys when retrying.

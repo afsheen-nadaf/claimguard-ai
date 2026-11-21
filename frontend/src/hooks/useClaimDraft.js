@@ -201,10 +201,7 @@ export function useClaimDraft() {
     );
   }, []);
 
-  // Upload one file to S3, then call the Bedrock extraction endpoint and
-  // merge any extracted fields into the claim form. Updates file state
-  // in-place via patchFile. Extraction failures are non-fatal: the file
-  // is still uploaded and the claim can still be submitted.
+  // Upload evidence files and extract fields from PDF documents only.
   const uploadAndExtract = useCallback(
     async (entry, claimId) => {
       // 1. Upload to S3 via presigned URL.
@@ -221,6 +218,11 @@ export function useClaimDraft() {
           s3Key: uploaded.key,
           contentType: uploaded.contentType,
         });
+
+        if (entry.category === "image") {
+          patchFile(entry.id, { extractionStatus: "not_applicable" });
+          return;
+        }
 
         // 2. Auto-extract fields via Bedrock (non-blocking on submit).
         patchFile(entry.id, { extractionStatus: "extracting" });
@@ -292,10 +294,11 @@ export function useClaimDraft() {
   );
 
   const addFiles = useCallback(
-    (fileList) => {
+    (fileList, category = "document") => {
       const incoming = Array.from(fileList || []);
       const accepted = [];
       const messages = [];
+      const isImageCategory = category === "image";
 
       const isImageFile = (file) => {
         const ext = "." + (file.name.split(".").pop() || "").toLowerCase();
@@ -306,7 +309,7 @@ export function useClaimDraft() {
       };
 
       const existingImageCount = files.filter(
-        (entry) => isImageFile(entry.file)
+        (entry) => entry.category === "image"
       ).length;
 
       let acceptedImageCount = 0;
@@ -315,11 +318,13 @@ export function useClaimDraft() {
         const ext =
           "." + (file.name.split(".").pop() || "").toLowerCase();
 
-        const typeOk =
-          UPLOAD_RULES.allowedTypes.includes(file.type) ||
-          UPLOAD_RULES.allowedExtensions.includes(ext);
-
         const isImage = isImageFile(file);
+        const typeOk = isImageCategory
+          ? isImage
+          : file.type === "application/pdf" || ext === ".pdf";
+        const allowedTypes = isImageCategory
+          ? "JPG, JPEG or PNG images"
+          : "PDF documents";
 
         const same = (entry) =>
           entry.file.name === file.name &&
@@ -329,48 +334,54 @@ export function useClaimDraft() {
         if (!typeOk) {
           messages.push({
             tone: "error",
-            text: `${file.name}: only PDF, JPG, JPEG or PNG files are accepted.`,
+            category,
+            text: `${file.name}: select ${allowedTypes}.`,
           });
         } else if (file.size === 0) {
           messages.push({
             tone: "error",
+            category,
             text: `${file.name}: the file is empty.`,
           });
         } else if (file.size > UPLOAD_RULES.maxBytes) {
           messages.push({
             tone: "error",
+            category,
             text: `${file.name} (${formatBytes(file.size)}): exceeds the 10 MB limit.`,
           });
         } else if (files.some(same) || accepted.some(same)) {
           messages.push({
             tone: "error",
+            category,
             text: `${file.name}: already added.`,
           });
         } else if (
-          isImage &&
-          existingImageCount + acceptedImageCount >= 3
+          isImageCategory &&
+          existingImageCount + acceptedImageCount >= UPLOAD_RULES.maxImages
         ) {
           messages.push({
             tone: "error",
-            text: `${file.name}: a maximum of 3 images is allowed per claim.`,
+            category,
+            text: `${file.name}: a maximum of ${UPLOAD_RULES.maxImages} images is allowed per claim.`,
           });
         } else {
           accepted.push({
             id: `f${++fileCounter}`,
             file,
+            category,
             status: "uploading",
             progress: 0,
             error: null,
             s3Key: null,
             contentType: null,
-            extractionStatus: "pending",
+            extractionStatus: isImageCategory ? "not_applicable" : "pending",
             extractionError: null,
             extractedData: null,
             extractedFields: [],
             skippedFields: [],
           });
 
-          if (isImage) {
+          if (isImageCategory) {
             acceptedImageCount++;
           }
         }
@@ -389,7 +400,10 @@ export function useClaimDraft() {
         }
       }
 
-      setFileMessages(messages);
+      setFileMessages((currentMessages) => [
+        ...currentMessages.filter((message) => message.category !== category),
+        ...messages,
+      ]);
     },
     [files, ensureClaimId, uploadAndExtract]
   );
@@ -452,7 +466,7 @@ export function useClaimDraft() {
       const failedFiles = files.filter((f) => f.status === "error");
       if (failedFiles.length > 0) {
         setSubmitError(
-          `${failedFiles.length} document${failedFiles.length === 1 ? "" : "s"} failed to upload, so no screening was run. Remove and re-add the failed file${failedFiles.length === 1 ? "" : "s"} to retry.`
+          `${failedFiles.length} supporting file${failedFiles.length === 1 ? "" : "s"} failed to upload, so no screening was run. Remove and re-add the failed file${failedFiles.length === 1 ? "" : "s"} to retry.`
         );
         return;
       }
@@ -463,7 +477,7 @@ export function useClaimDraft() {
       const stillUploading = files.filter((f) => f.status !== "done");
       if (stillUploading.length > 0) {
         setSubmitError(
-          `${stillUploading.length} document${stillUploading.length === 1 ? "" : "s"} are still uploading. Please wait for uploads to finish before screening.`
+          `${stillUploading.length} file${stillUploading.length === 1 ? "" : "s"} are still uploading. Please wait for uploads to finish before screening.`
         );
         return;
       }
@@ -472,7 +486,7 @@ export function useClaimDraft() {
       const missingKeys = files.filter((f) => !f.s3Key);
       if (missingKeys.length > 0) {
         setSubmitError(
-          "One or more uploaded documents are missing their storage key. Remove and re-add the affected files."
+          "One or more uploaded files are missing their storage key. Remove and re-add the affected files."
         );
         return;
       }

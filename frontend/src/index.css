@@ -1,30 +1,48 @@
-/* ---------- Design tokens - Modern SaaS Dark Theme ---------- */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---------- Design tokens - Soft Purple SaaS Theme ---------- */
 :root {
-  /* Core backgrounds - Pure dark with subtle warmth */
-  --bg: #0a0a0b;
-  --surface: #18181b;
-  --surface-elevated: #27272a;
+  /* Core backgrounds - Dark with purple undertones */
+  --bg: #0f0b14;
+  --surface: #1a1425;
+  --surface-elevated: #251d33;
+  --sidebar-bg: #16111f;
 
-  /* Borders - Subtle with good contrast */
-  --border: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.12);
+  /* Borders - Purple-tinted subtle borders */
+  --border: rgba(139, 92, 246, 0.08);
+  --border-strong: rgba(139, 92, 246, 0.15);
 
-  /* Text hierarchy */
-  --text: #fafafa;
-  --text-secondary: #d4d4d8;
-  --muted: #a1a1aa;
+  /* Text hierarchy - Warm whites */
+  --text: #f5f3f7;
+  --text-secondary: #d4c5e0;
+  --muted: #a193b5;
 
-  /* Primary accent - Modern purple/blue */
-  --primary: #8b5cf6;
-  --primary-hover: #a78bfa;
-  --primary-light: #c4b5fd;
+  /* Purple spectrum - Soft, easy on eyes */
+  --purple-950: #1a0f2e;
+  --purple-900: #2d1b4e;
+  --purple-800: #3d2667;
+  --purple-700: #5b3a8f;
+  --purple-600: #7c4dbd;
+  --purple-500: #9466d9;
+  --purple-400: #a87ee5;
+  --purple-300: #bfa0ed;
+  --purple-200: #d5c2f5;
+  --purple-100: #e8dff9;
+  --purple-50: #f4f0fb;
+
+  /* Primary accents */
+  --primary: #9466d9;
+  --primary-hover: #a87ee5;
+  --primary-light: #bfa0ed;
 
   /* Accent shades */
-  --indigo-50: rgba(139, 92, 246, 0.08);
-  --indigo-100: rgba(139, 92, 246, 0.15);
-  --indigo-500: #8b5cf6;
-  --indigo-600: #a78bfa;
-  --indigo-700: #c4b5fd;
+  --indigo-50: rgba(148, 102, 217, 0.08);
+  --indigo-100: rgba(148, 102, 217, 0.15);
+  --indigo-500: #9466d9;
+  --indigo-600: #a87ee5;
+  --indigo-700: #bfa0ed;
 
   /* Status colors - High contrast */
   --green-50: rgba(34, 197, 94, 0.1);
@@ -96,20 +114,20 @@
   --s6: 24px;
   --s8: 32px;
 
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.5);
-  --shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.7);
-  --shadow-glow: 0 0 24px rgba(139, 92, 246, 0.15);
-  --shadow-glow-hover: 0 0 32px rgba(139, 92, 246, 0.25);
-  --focus: 0 0 0 3px rgba(139, 92, 246, 0.4);
+  --shadow-sm: 0 2px 8px rgba(15, 11, 20, 0.6);
+  --shadow: 0 4px 20px rgba(15, 11, 20, 0.7);
+  --shadow-lg: 0 8px 32px rgba(15, 11, 20, 0.8);
+  --shadow-glow: 0 0 24px rgba(148, 102, 217, 0.12);
+  --shadow-glow-hover: 0 0 32px rgba(148, 102, 217, 0.2);
+  --focus: 0 0 0 3px rgba(148, 102, 217, 0.35);
 
   /* Glass effects */
-  --glass-bg: rgba(24, 24, 27, 0.6);
-  --glass-bg-elevated: rgba(39, 39, 42, 0.7);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --glass-border-hover: rgba(139, 92, 246, 0.3);
+  --glass-bg: rgba(26, 20, 37, 0.6);
+  --glass-bg-elevated: rgba(37, 29, 51, 0.7);
+  --glass-border: rgba(148, 102, 217, 0.12);
+  --glass-border-hover: rgba(148, 102, 217, 0.3);
 
-  --font: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font: 'Poppins', ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   font-family: var(--font);

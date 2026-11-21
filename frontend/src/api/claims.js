@@ -2,6 +2,26 @@
 import { ENDPOINTS, UPLOAD_RULES } from "./config";
 import { ApiError, postJson, putToPresignedUrl } from "./client";
 
+// Fetch claim history from AWS DynamoDB
+export async function fetchClaimHistory(limit = 50) {
+  const url = `${ENDPOINTS.fetchHistory}?limit=${limit}`;
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new ApiError(`Failed to fetch claim history: ${response.statusText}`, {
+      kind: "network",
+      status: response.status,
+    });
+  }
+
+  return await response.json();
+}
+
 export function resolveContentType(file) {
   const extension = (file.name.split(".").pop() || "").toLowerCase();
 
@@ -122,7 +142,7 @@ export function analyzeClaimImages(claimId, documents = []) {
     });
   }
 
-  const boundedKeys = imageKeys.slice(0, 2);
+  const boundedKeys = imageKeys.slice(0, UPLOAD_RULES.maxImages);
 
   return postJson(ENDPOINTS.analyzeImage, {
     claimId,
