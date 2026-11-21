@@ -20,7 +20,7 @@ RUN python3 -c "from huggingface_hub import snapshot_download; snapshot_download
 RUN python3 -c "import glob, sys; path = glob.glob('/var/task/smaug-model/models--abacusai--Smaug-AI-Image-Detector/snapshots/*')[0]; sys.path.insert(0, path); from smaug_image_detect import SmaugImageDetect; SmaugImageDetect.from_pretrained(path); print('Model verified at:', path)"
 
 # Copy the application code and analyzer modules
-COPY app.py smaug_local.py ${LAMBDA_TASK_ROOT}/
+COPY app.py cognito_token.py smaug_local.py ${LAMBDA_TASK_ROOT}/
 COPY compression_analyzer.py ${LAMBDA_TASK_ROOT}/
 COPY metadata_analyzer.py ${LAMBDA_TASK_ROOT}/
 COPY quality_analyzer.py ${LAMBDA_TASK_ROOT}/

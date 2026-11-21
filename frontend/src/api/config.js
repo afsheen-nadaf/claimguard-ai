@@ -1,15 +1,8 @@
-// Central API configuration. Endpoint URLs are unchanged from the original app.
-// Override the base with VITE_API_BASE in a .env file if you redeploy the stack.
+const env = import.meta.env || globalThis.process?.env || {};
 
-export const REGION = "ap-southeast-2";
-
-export const API_BASE =
-  import.meta.env.VITE_API_BASE ||
-  "https://7cd0wz7wh0.execute-api.ap-southeast-2.amazonaws.com/Prod";
-
-export const ANALYZE_IMAGE_URL =
-  import.meta.env.VITE_ANALYZE_URL ||
-  "https://twp2j25xpsfgjiksqsdypl6zty0kuzsn.lambda-url.ap-southeast-2.on.aws/";
+export const REGION = env.VITE_AWS_REGION || "";
+export const API_BASE = (env.VITE_API_BASE || "").replace(/\/+$/, "");
+export const ANALYZE_IMAGE_URL = env.VITE_ANALYZE_URL || "";
 
 export const ENDPOINTS = {
   presign: `${API_BASE}/uploads/presign`,
@@ -20,6 +13,7 @@ export const ENDPOINTS = {
   extractDocument: `${API_BASE}/claims/extract-document`,
   validateEvidence: `${API_BASE}/claims/validate-evidence`,
   fetchHistory: `${API_BASE}/claims/history`,
+  saveResults: `${API_BASE}/claims/screening-results`,
 };
 
 export const UPLOAD_RULES = {

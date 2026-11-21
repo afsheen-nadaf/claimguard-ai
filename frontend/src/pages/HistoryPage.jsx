@@ -160,7 +160,14 @@ function readSavedFilters() {
   }
 }
 
-export default function HistoryPage({ records, navigate }) {
+export default function HistoryPage({
+  records,
+  navigate,
+  role,
+  hasMore = false,
+  isLoadingMore = false,
+  onLoadMore,
+}) {
   const [filters, setFilters] = useState(readSavedFilters);
   const { query, outcome, sortOrder } = filters;
   const filteredRecords = filterHistoryRecords(records, { query, outcome, sortOrder });
@@ -195,12 +202,16 @@ export default function HistoryPage({ records, navigate }) {
     <>
       <PageHeader
         eyebrow="CLAIM HISTORY"
-        title="Claim history"
-        description="Saved claims, screening status, and supporting evidence."
+        title={role === "claimant" ? "My claims" : "Claim history"}
+        description={
+          role === "claimant"
+            ? "Your submitted claims and their screening status."
+            : "Claims, screening status, and fraud signals available for adjuster review."
+        }
       />
 
       <Callout tone="info">
-        <strong className="font-semibold">Saved history.</strong> Claims and your search, outcome, and sort preferences persist in this browser.
+        <strong className="font-semibold">Authenticated history.</strong> Claims are loaded from your account; search, outcome, and sort preferences persist in this browser.
       </Callout>
 
       <Card>
@@ -208,7 +219,7 @@ export default function HistoryPage({ records, navigate }) {
           <EmptyState
             icon="history"
             title="Nothing screened yet"
-            action={
+            action={role === "claimant" ? (
               <button
                 type="button"
                 className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-xl font-semibold hover:from-purple-500 hover:to-purple-600 transition-all shadow-lg"
@@ -216,7 +227,7 @@ export default function HistoryPage({ records, navigate }) {
               >
                 Submit a new claim
               </button>
-            }
+            ) : null}
           >
             Submit a claim and it will be listed here with its outcome.
           </EmptyState>
@@ -417,6 +428,18 @@ export default function HistoryPage({ records, navigate }) {
                                   Image forensics skipped · no photos
                                 </span>
                               )}
+                            </div>
+                          )}
+                          {hasMore && (
+                            <div className="mt-5 flex justify-center">
+                              <button
+                                type="button"
+                                className="rounded-xl border border-purple-700/40 bg-purple-950/30 px-5 py-2.5 text-sm font-semibold text-purple-100 transition-colors hover:bg-purple-900/40 disabled:cursor-wait disabled:opacity-60"
+                                onClick={onLoadMore}
+                                disabled={isLoadingMore}
+                              >
+                                {isLoadingMore ? "Loading…" : "Load more claims"}
+                              </button>
                             </div>
                           )}
                         </td>

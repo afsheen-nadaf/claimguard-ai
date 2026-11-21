@@ -2,19 +2,31 @@ import { useEffect } from "react";
 import Icon from "./Icon";
 import { REGION } from "../api/config";
 
-const NAV = [
+const ADJUSTER_NAV = [
   { id: "overview", href: "#/", label: "OVERVIEW", icon: "grid" },
-  { id: "new", href: "#/new", label: "NEW CLAIM", icon: "filePlus" },
   { id: "history", href: "#/history", label: "CLAIM HISTORY", icon: "history" },
   { id: "analytics", href: "#/analytics", label: "ANALYTICS", icon: "chart" },
   { id: "how", href: "#/how-it-works", label: "HOW IT WORKS", icon: "help" },
 ];
 
-export default function AppShell({ route, sessionCount, children }) {
+const CLAIMANT_NAV = [
+  { id: "new", href: "#/new", label: "SUBMIT CLAIM", icon: "filePlus" },
+  { id: "history", href: "#/history", label: "MY CLAIMS", icon: "history" },
+];
+
+export default function AppShell({
+  route,
+  sessionCount,
+  role,
+  account,
+  onSignOut,
+  children,
+}) {
+  const nav = role === "adjuster" ? ADJUSTER_NAV : CLAIMANT_NAV;
   const activeId = route.name === "results" ? "history" : route.name;
   const pageTitle = route.name === "results"
     ? "Screening results"
-    : NAV.find((item) => item.id === route.name)?.label || "Overview";
+    : nav.find((item) => item.id === route.name)?.label || "ClaimGuard AI";
   useEffect(() => {
     document.title = `${pageTitle} · ClaimGuard AI`;
   }, [pageTitle]);
@@ -41,7 +53,7 @@ export default function AppShell({ route, sessionCount, children }) {
 
           {/* Navigation */}
           <nav className="flex items-center justify-center gap-2.5 flex-1 min-w-0" aria-label="Main navigation">
-            {NAV.map((item) => (
+            {nav.map((item) => (
               <a
                 key={item.id}
                 href={item.href}
@@ -66,13 +78,33 @@ export default function AppShell({ route, sessionCount, children }) {
             ))}
           </nav>
 
-          {/* Region Chip */}
-          <div
-            className="inline-flex items-center gap-2 text-[11.5px] font-semibold text-purple-400 bg-[#251d33] border border-purple-800/30 rounded-full px-3 py-1.5 whitespace-nowrap flex-shrink-0"
-            title="The AWS region the screening API is deployed in"
-          >
-            <span className="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_0_3px_rgba(168,85,247,0.2)]" aria-hidden="true" />
-            AWS {REGION}
+          <div className="flex items-center gap-3 flex-shrink-0">
+            {REGION && (
+              <div
+                className="inline-flex items-center gap-2 text-[11.5px] font-semibold text-purple-400 bg-[#251d33] border border-purple-800/30 rounded-full px-3 py-1.5 whitespace-nowrap"
+                title="The AWS region the screening API is deployed in"
+              >
+                <span className="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_0_3px_rgba(168,85,247,0.2)]" aria-hidden="true" />
+                AWS {REGION}
+              </div>
+            )}
+            <div className="flex items-center gap-2 text-right">
+              <div className="block min-w-0 max-w-[140px]">
+                <p className="truncate text-[10px] font-semibold text-white" title={account?.email}>
+                  {account?.email || "Signed in"}
+                </p>
+                <p className="text-[9px] font-semibold uppercase tracking-wide text-purple-300">
+                  {role}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="rounded-lg border border-purple-700/40 px-3 py-2 text-xs font-semibold text-purple-100 transition-colors hover:bg-purple-900/40"
+                onClick={onSignOut}
+              >
+                Log out
+              </button>
+            </div>
           </div>
         </div>
       </header>

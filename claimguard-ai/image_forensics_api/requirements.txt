@@ -6,3 +6,4 @@ torch
 torchvision
 sentence-transformers
 huggingface-hub
+PyJWT[crypto]>=2.10,<3

@@ -26,25 +26,129 @@ Globals:
 
       LogFormat: JSON
 
-
+Metadata:
+  cfn-lint:
+    config:
+      ignore_checks:
+        - W3660
 
   Api:
-
     TracingEnabled: true
-
     Cors:
+      AllowMethods: "'OPTIONS,GET,POST'"
+      AllowHeaders: "'Content-Type,Authorization'"
+      AllowOrigin: !Sub "'${FrontendOrigin}'"
+    Auth:
+      DefaultAuthorizer: CognitoAuthorizer
+      AddDefaultAuthorizerToCorsPreflight: false
+      Authorizers:
+        CognitoAuthorizer:
+          UserPoolArn: !GetAtt CognitoUserPool.Arn
 
-      AllowMethods: "'OPTIONS,POST'"
-
-      AllowHeaders: "'Content-Type'"
-
-      AllowOrigin: "'http://localhost:5173'"
-
-
+Parameters:
+  FrontendOrigin:
+    Type: String
+    Default: http://localhost:5173
+    Description: Browser origin allowed to use the API and Cognito Hosted UI.
+  CognitoDomainPrefix:
+    Type: String
+    Description: Globally unique Cognito Hosted UI domain prefix.
 
 Resources:
 
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub "${AWS::StackName}-users"
+      UsernameAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+      UsernameConfiguration:
+        CaseSensitive: false
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Mutable: true
+          Required: true
 
+  CognitoUserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Ref CognitoDomainPrefix
+      UserPoolId: !Ref CognitoUserPool
+
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub "${AWS::StackName}-frontend"
+      UserPoolId: !Ref CognitoUserPool
+      GenerateSecret: false
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthFlows:
+        - code
+      AllowedOAuthScopes:
+        - openid
+        - email
+        - profile
+      SupportedIdentityProviders:
+        - COGNITO
+      CallbackURLs:
+        - !Ref FrontendOrigin
+      LogoutURLs:
+        - !Ref FrontendOrigin
+      PreventUserExistenceErrors: ENABLED
+
+  AdjusterUserGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: adjuster
+      Description: Insurance adjusters who can review all claims.
+      UserPoolId: !Ref CognitoUserPool
+
+  ClaimantUserGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: claimant
+      Description: Claimants who can submit and view their own claims.
+      UserPoolId: !Ref CognitoUserPool
+
+  CognitoAuthLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub "${AWS::StackName}-cognito-auth"
+      ContentUri: shared_auth/
+      CompatibleRuntimes:
+        - python3.14
+      RetentionPolicy: Retain
+
+  UnauthorizedGatewayResponse:
+    Type: AWS::ApiGateway::GatewayResponse
+    Properties:
+      RestApiId: !Ref ServerlessRestApi
+      ResponseType: UNAUTHORIZED
+      StatusCode: "401"
+      ResponseParameters:
+        gatewayresponse.header.Access-Control-Allow-Origin: !Sub "'${FrontendOrigin}'"
+        gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+        gatewayresponse.header.Access-Control-Allow-Methods: "'OPTIONS,GET,POST'"
+      ResponseTemplates:
+        application/json: '{"error":"Unauthorized"}'
+
+  AccessDeniedGatewayResponse:
+    Type: AWS::ApiGateway::GatewayResponse
+    Properties:
+      RestApiId: !Ref ServerlessRestApi
+      ResponseType: ACCESS_DENIED
+      StatusCode: "403"
+      ResponseParameters:
+        gatewayresponse.header.Access-Control-Allow-Origin: !Sub "'${FrontendOrigin}'"
+        gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+        gatewayresponse.header.Access-Control-Allow-Methods: "'OPTIONS,GET,POST'"
+      ResponseTemplates:
+        application/json: '{"error":"Forbidden"}'
 
   # --------------------------------------------------
 
@@ -91,20 +195,14 @@ Resources:
 
 
       CorsConfiguration:
-
         CorsRules:
-
           - AllowedOrigins:
-
-              - 'http://localhost:5173'
-
+              - !Ref FrontendOrigin
             AllowedMethods:
-
               - PUT
-
             AllowedHeaders:
-
               - Content-Type
+              - x-amz-meta-userid
 
             ExposedHeaders:
 
@@ -139,17 +237,17 @@ Resources:
 
 
       Environment:
-
         Variables:
-
           CLAIM_PACKETS_BUCKET: !Ref ClaimPacketsBucket
+          CORS_ORIGIN: !Ref FrontendOrigin
+      Layers:
+        - !Ref CognitoAuthLayer
 
 
 
       Policies:
 
         - S3WritePolicy:
-
             BucketName: !Ref ClaimPacketsBucket
 
 
@@ -189,15 +287,10 @@ Resources:
 
 
       AttributeDefinitions:
-
         - AttributeName: claimId
-
           AttributeType: S
-
         - AttributeName: policyNumber
-
           AttributeType: S
-
         - AttributeName: incidentDate
 
           AttributeType: S
@@ -213,7 +306,6 @@ Resources:
 
 
       GlobalSecondaryIndexes:
-
         - IndexName: PolicyNumberIncidentDateIndex
 
           KeySchema:
@@ -293,17 +385,13 @@ Resources:
 
 
       Environment:
-
         Variables:
-
           POLICIES_TABLE: !Ref ReferencePoliciesTable
-
+          CORS_ORIGIN: !Ref FrontendOrigin
 
 
       Policies:
-
         - DynamoDBReadPolicy:
-
             TableName: !Ref ReferencePoliciesTable
 
 
@@ -348,6 +436,10 @@ Resources:
 
           AttributeType: S
 
+        - AttributeName: userId
+
+          AttributeType: S
+
         - AttributeName: policyNumber
 
           AttributeType: S
@@ -367,6 +459,22 @@ Resources:
 
 
       GlobalSecondaryIndexes:
+
+        - IndexName: UserIdIndex
+
+          KeySchema:
+
+            - AttributeName: userId
+
+              KeyType: HASH
+
+            - AttributeName: incidentDate
+
+              KeyType: RANGE
+
+          Projection:
+
+            ProjectionType: ALL
 
         - IndexName: PolicyNumberIncidentDateIndex
 
@@ -469,16 +577,14 @@ Resources:
 
 
       Environment:
-
         Variables:
-
           REFERENCE_CLAIMS_TABLE: !Ref ReferenceClaimsTable
-
           OPERATIONAL_CLAIMS_TABLE: !Ref OperationalClaimsTable
-
           IMAGE_HASHES_TABLE: !Ref ImageHashesTable
-
           CLAIM_PACKETS_BUCKET: !Ref ClaimPacketsBucket
+          CORS_ORIGIN: !Ref FrontendOrigin
+      Layers:
+        - !Ref CognitoAuthLayer
 
 
 
@@ -532,6 +638,82 @@ Resources:
 
   # --------------------------------------------------
 
+  # FETCH CLAIMS HISTORY LAMBDA
+
+  # --------------------------------------------------
+
+
+
+  FetchClaimsFunction:
+
+    Type: AWS::Serverless::Function
+
+    Properties:
+
+      CodeUri: fetch_claims_api/
+
+      Handler: app.lambda_handler
+
+      Runtime: python3.14
+
+      Timeout: 15
+
+      MemorySize: 256
+
+
+
+      Environment:
+        Variables:
+          OPERATIONAL_CLAIMS_TABLE: !Ref OperationalClaimsTable
+          CORS_ORIGIN: !Ref FrontendOrigin
+      Layers:
+        - !Ref CognitoAuthLayer
+
+
+
+      Policies:
+
+        - DynamoDBReadPolicy:
+
+            TableName: !Ref OperationalClaimsTable
+
+
+
+      Events:
+        FetchClaims:
+          Type: Api
+          Properties:
+            Path: /claims/history
+            Method: GET
+
+  SaveClaimResultsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: save_claim_results_api/
+      Handler: app.lambda_handler
+      Runtime: python3.14
+      Timeout: 10
+      Environment:
+        Variables:
+          OPERATIONAL_CLAIMS_TABLE: !Ref OperationalClaimsTable
+          CORS_ORIGIN: !Ref FrontendOrigin
+      Layers:
+        - !Ref CognitoAuthLayer
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:UpdateItem
+              Resource: !GetAtt OperationalClaimsTable.Arn
+      Events:
+        SaveClaimResults:
+          Type: Api
+          Properties:
+            Path: /claims/screening-results
+            Method: POST
+
+  # --------------------------------------------------
+
   # OUTLIER DETECTION LAMBDA
 
   # --------------------------------------------------
@@ -555,17 +737,13 @@ Resources:
 
 
       Environment:
-
         Variables:
-
           REFERENCE_CLAIMS_TABLE: !Ref ReferenceClaimsTable
-
+          CORS_ORIGIN: !Ref FrontendOrigin
 
 
       Policies:
-
         - DynamoDBReadPolicy:
-
             TableName: !Ref ReferenceClaimsTable
 
 
@@ -611,12 +789,12 @@ Resources:
 
 
       Environment:
-
         Variables:
-
           CLAIM_PACKETS_BUCKET: !Ref ClaimPacketsBucket
-
           BEDROCK_MODEL_ID: amazon.nova-lite-v1:0
+          CORS_ORIGIN: !Ref FrontendOrigin
+      Layers:
+        - !Ref CognitoAuthLayer
 
 
 
@@ -685,11 +863,12 @@ Resources:
         AuthType: NONE
         Cors:
           AllowOrigins:
-            - "http://localhost:5173"
+            - !Ref FrontendOrigin
           AllowMethods:
             - POST
           AllowHeaders:
             - content-type
+            - authorization
           MaxAge: 3000
 
       MemorySize: 3008
@@ -716,7 +895,13 @@ Resources:
 
           MAX_IMAGE_BYTES: "10485760"
 
-          CORS_ORIGIN: "http://localhost:5173"
+          CORS_ORIGIN: !Ref FrontendOrigin
+
+          USER_POOL_ID: !Ref CognitoUserPool
+
+          USER_POOL_CLIENT_ID: !Ref CognitoUserPoolClient
+
+          OPERATIONAL_CLAIMS_TABLE: !Ref OperationalClaimsTable
 
           SMAUG_MIN_REMAINING_TIME_MS: "20000"
 
@@ -725,7 +910,8 @@ Resources:
 
 
       Policies:
-
+        - DynamoDBReadPolicy:
+            TableName: !Ref OperationalClaimsTable
         - Statement:
 
             - Sid: ReadUploadedImagesForForensics
@@ -791,19 +977,16 @@ Resources:
 
 
       Environment:
-
         Variables:
-
           CLAIM_PACKETS_BUCKET: !Ref ClaimPacketsBucket
-
           BEDROCK_MODEL_ID: amazon.nova-lite-v1:0
+          CORS_ORIGIN: !Ref FrontendOrigin
 
-          CORS_ORIGIN: "http://localhost:5173"
-
+      Layers:
+        - !Ref CognitoAuthLayer
 
 
       Policies:
-
         - Statement:
 
             - Sid: ReadUploadedClaimEvidence
@@ -913,3 +1096,23 @@ Outputs:
   ImageForensicsUrl:
     Description: Direct Lambda Function URL for image forensics (no 29s limit)
     Value: !GetAtt ImageForensicsFunctionUrl.FunctionUrl
+
+  CognitoUserPoolId:
+    Description: Cognito user pool ID
+    Value: !Ref CognitoUserPool
+
+  CognitoUserPoolClientId:
+    Description: Cognito public app client ID
+    Value: !Ref CognitoUserPoolClient
+
+  CognitoHostedUiDomain:
+    Description: Cognito Hosted UI domain
+    Value: !Sub "${CognitoDomainPrefix}.auth.${AWS::Region}.amazoncognito.com"
+
+  ClaimsHistoryApi:
+    Description: Authenticated paginated claims history endpoint
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/Prod/claims/history"
+
+  SaveClaimResultsApi:
+    Description: Authenticated endpoint for persisting claim screening results
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/Prod/claims/screening-results"

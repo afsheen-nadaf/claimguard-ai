@@ -1,25 +1,16 @@
 
-import { ENDPOINTS, UPLOAD_RULES } from "./config";
-import { ApiError, postJson, putToPresignedUrl } from "./client";
+import { ENDPOINTS, UPLOAD_RULES } from "./config.js";
+import { ApiError, getJson, postJson, putToPresignedUrl } from "./client.js";
 
-// Fetch claim history from AWS DynamoDB
-export async function fetchClaimHistory(limit = 50) {
-  const url = `${ENDPOINTS.fetchHistory}?limit=${limit}`;
-  const response = await fetch(url, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
+export function fetchClaimHistory(limit = 50, cursor = null, claimId = null) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (cursor) params.set("cursor", cursor);
+  if (claimId) params.set("claimId", claimId);
+  return getJson(`${ENDPOINTS.fetchHistory}?${params.toString()}`);
+}
 
-  if (!response.ok) {
-    throw new ApiError(`Failed to fetch claim history: ${response.statusText}`, {
-      kind: "network",
-      status: response.status,
-    });
-  }
-
-  return await response.json();
+export function persistScreeningResult(claimId, checkKey, checkResult) {
+  return postJson(ENDPOINTS.saveResults, { claimId, checkKey, checkResult });
 }
 
 export function resolveContentType(file) {
@@ -67,7 +58,8 @@ export async function uploadDocument(file, onProgress, claimId) {
     presign.uploadUrl,
     file,
     contentType,
-    onProgress
+    onProgress,
+    presign.requiredHeaders || {}
   );
 
   return {
@@ -99,6 +91,7 @@ export function checkDuplicate(claimId, claim, documents = []) {
   return postJson(ENDPOINTS.duplicate, {
     claimId,
     policyNumber: claim.policyNumber,
+    claimType: claim.claimType,
     incidentDate: claim.incidentDate,
     claimAmountINR: claim.claimAmountINR,
     imageKeys,

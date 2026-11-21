@@ -7,6 +7,8 @@ from pathlib import Path
 
 import boto3
 from botocore.exceptions import ClientError
+from jwt.exceptions import InvalidTokenError, PyJWKClientConnectionError, PyJWKClientError
+from cognito_token import TokenConfigurationError, verify_id_token
 
 # Smaug is now loaded locally (no external gradio_client / HuggingFace Space).
 from smaug_local import analyze_image as smaug_analyze
@@ -24,6 +26,11 @@ from review_engine import generate_review
 s3 = boto3.client("s3")
 
 BUCKET = os.environ["CLAIM_PACKETS_BUCKET"]
+AWS_REGION = os.environ["AWS_REGION"]
+OPERATIONAL_CLAIMS_TABLE = os.environ["OPERATIONAL_CLAIMS_TABLE"]
+CORS_ORIGIN = os.environ.get("CORS_ORIGIN")
+dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
+claims_table = dynamodb.Table(OPERATIONAL_CLAIMS_TABLE)
 
 MAX_IMAGES = int(
     os.environ.get("MAX_IMAGES_PER_CLAIM", "2")
@@ -59,13 +66,35 @@ SMAUG_MIN_REMAINING_TIME_MS = int(
 
 def response(status_code, body):
 
+    headers = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Methods": "OPTIONS,POST",
+        "Access-Control-Allow-Headers": "Content-Type,Authorization",
+    }
+    if CORS_ORIGIN:
+        headers["Access-Control-Allow-Origin"] = CORS_ORIGIN
     return {
         "statusCode": status_code,
-        "headers": {
-            "Content-Type": "application/json",
-        },
+        "headers": headers,
         "body": json.dumps(body, default=str),
     }
+
+
+def authorize_claim_images(identity, claim_id, image_keys):
+    item = claims_table.get_item(Key={"claimId": claim_id}).get("Item")
+    if not item:
+        raise PermissionError("Claim is not available.")
+    adjuster = "adjuster" in identity["groups"]
+    if not adjuster and item.get("userId") != identity["userId"]:
+        raise PermissionError("Claim is not available.")
+
+    expected_prefix = f"incoming/{claim_id}/"
+    for key in image_keys:
+        if not key.startswith(expected_prefix):
+            raise ValueError("Each image must belong to this claim.")
+        object_metadata = s3.head_object(Bucket=BUCKET, Key=key).get("Metadata", {})
+        if not adjuster and object_metadata.get("userid") != identity["userId"]:
+            raise PermissionError("Claim is not available.")
 
 
 # --------------------------------------------------
@@ -296,7 +325,9 @@ def lambda_handler(event, context):
     # CORS PREFLIGHT
     # ----------------------------------------------
 
-    if event.get("httpMethod") == "OPTIONS":
+    request_context = event.get("requestContext") or {}
+    method = event.get("httpMethod") or (request_context.get("http") or {}).get("method")
+    if method == "OPTIONS":
 
         return response(
             200,
@@ -304,6 +335,15 @@ def lambda_handler(event, context):
                 "message": "CORS preflight successful."
             }
         )
+
+    try:
+        identity = verify_id_token(event.get("headers") or {})
+    except PyJWKClientConnectionError:
+        return response(503, {"error": "Authentication verification is temporarily unavailable."})
+    except TokenConfigurationError:
+        return response(500, {"error": "Authentication verification is not configured."})
+    except (InvalidTokenError, PyJWKClientError, ValueError):
+        return response(401, {"error": "Unauthorized"})
 
     try:
 
@@ -348,6 +388,7 @@ def lambda_handler(event, context):
         keys = validate_keys(
             payload.get("imageKeys")
         )
+        authorize_claim_images(identity, claim_id.strip(), keys)
 
         # ------------------------------------------
         # ANALYZE ALL CLAIM IMAGES
@@ -423,6 +464,9 @@ def lambda_handler(event, context):
     # ----------------------------------------------
     # VALIDATION ERRORS
     # ----------------------------------------------
+
+    except PermissionError:
+        return response(403, {"error": "Forbidden"})
 
     except (ValueError, json.JSONDecodeError) as exc:
 

@@ -37,14 +37,14 @@ export default function ResultsPage({ record, onRetry, navigate }) {
             action={
               <button
                 type="button"
-                className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-xl font-semibold hover:from-purple-500 hover:to-purple-600 transition-all shadow-lg"
-                onClick={() => navigate("/new")}
+                className="px-5 py-2.5 bg-[#251d33] text-purple-100 border border-purple-700/30 rounded-xl font-semibold hover:bg-[#2d2440] transition-all"
+                onClick={() => navigate("/history")}
               >
-                Submit a new claim
+                Back to claim history
               </button>
             }
           >
-            The results may have been cleared when the page was refreshed. Submit the claim again to re-run screening.
+            This claim is not available in the signed-in account. It may belong to another user or have been removed.
           </EmptyState>
         </Card>
       </div>
@@ -69,7 +69,7 @@ export default function ResultsPage({ record, onRetry, navigate }) {
               </button>
             }
           >
-            AWS claim history currently stores claim details only, not the screening results or uploaded documents.
+            This claim does not have a complete persisted screening snapshot. Missing checks are unavailable, not passes.
           </EmptyState>
         </Card>
       </div>
@@ -141,6 +141,18 @@ export default function ResultsPage({ record, onRetry, navigate }) {
   return (
     <div className="min-h-screen bg-[#0f0b14]">
       <ScrollProgress />
+      {CHECK_ORDER.some(
+        (key) => screeningChecks[key]?.persistenceSource === "authenticated-client"
+      ) && (
+        <div className="mx-auto mt-4 max-w-[1920px] px-6">
+          <div
+            className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100"
+            role="note"
+          >
+            Saved screening output is a browser-submitted snapshot, not an independently attested decision. Verify signals against the source evidence.
+          </div>
+        </div>
+      )}
 
       {/* Breadcrumbs */}
       <div className="bg-[#1a1425]/40 backdrop-blur-sm border-b border-purple-900/10">

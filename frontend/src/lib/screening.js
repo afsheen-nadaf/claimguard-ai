@@ -267,6 +267,12 @@ export function interpretDuplicate(response) {
   const matchedClaimId = response?.matchedClaimId ?? null;
   const message = response?.message ?? null;
   const matchType = response?.matchType ?? null;
+  const matchCount = Number.isInteger(response?.matchCount)
+    ? Math.max(0, response.matchCount)
+    : matches.length;
+  const imageMatchCount = Number.isInteger(response?.imageMatchCount)
+    ? Math.max(0, response.imageMatchCount)
+    : imageMatches.length;
 
   let state = "inconclusive";
   let label = rawStatus
@@ -289,6 +295,8 @@ export function interpretDuplicate(response) {
     if (
       matches.length > 0 ||
       imageMatches.length > 0 ||
+      matchCount > 0 ||
+      imageMatchCount > 0 ||
       matchedClaimId
     ) {
       state = "review";
@@ -300,7 +308,7 @@ export function interpretDuplicate(response) {
   }
 
   // Image matches are an independent reason for analyst review.
-  if (imageMatches.length > 0) {
+  if (imageMatches.length > 0 || imageMatchCount > 0) {
     state = "review";
     kind = "review";
     label = "Potential image duplicate: review required";
@@ -317,6 +325,8 @@ export function interpretDuplicate(response) {
       matchedClaimId !== null ? String(matchedClaimId) : null,
     matches,
     imageMatches,
+    matchCount,
+    imageMatchCount,
     imageMatchStatus: response?.imageMatchStatus ?? null,
   };
 }
@@ -701,7 +711,7 @@ export function interpretEvidence(response) {
     kind = "relevant";
     label = `All ${evidenceResults.length} evidence item${evidenceResults.length === 1 ? "" : "s"} assessed as relevant`;
   } else if (overallVerdict && EVIDENCE_VERDICT_INCONCLUSIVE.has(overallVerdict)) {
-    state = "inconclusive";
+    state = requiresReview ? "review" : "inconclusive";
     kind = "uncertain";
     label = requiresReview
       ? `Evidence relevance uncertain (${uncertain.length} of ${evidenceResults.length} item${evidenceResults.length === 1 ? "" : "s"} inconclusive or failed)`

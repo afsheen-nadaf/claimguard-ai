@@ -13,18 +13,20 @@ TABLE_NAME = os.environ["POLICIES_TABLE"]
 dynamodb = boto3.resource("dynamodb", region_name=REGION)
 policies_table = dynamodb.Table(TABLE_NAME)
 
-ALLOWED_ORIGIN = "http://localhost:5173"
+ALLOWED_ORIGIN = os.environ.get("CORS_ORIGIN")
 
 
 def response(status_code, body):
+    headers = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Methods": "OPTIONS,POST",
+        "Access-Control-Allow-Headers": "Content-Type,Authorization",
+    }
+    if ALLOWED_ORIGIN:
+        headers["Access-Control-Allow-Origin"] = ALLOWED_ORIGIN
     return {
         "statusCode": status_code,
-        "headers": {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
-            "Access-Control-Allow-Methods": "OPTIONS,POST",
-            "Access-Control-Allow-Headers": "Content-Type",
-        },
+        "headers": headers,
         "body": json.dumps(body, default=str),
     }
 

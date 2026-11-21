@@ -10,14 +10,8 @@ export default function DuplicateResult({ result, claimId }) {
   const [showAllMatches, setShowAllMatches] = useState(false);
   const matches = result?.matches || [];
   const imageMatches = result?.imageMatches || [];
-
-  // Calculate summary metrics for image matches
-  const avgSimilarity = imageMatches.length > 0
-    ? Math.round(imageMatches.reduce((sum, m) => sum + (m.similarityPercent || 0), 0) / imageMatches.length)
-    : 0;
-  const avgHamming = imageMatches.length > 0
-    ? Math.round(imageMatches.reduce((sum, m) => sum + (m.hammingDistance || 0), 0) / imageMatches.length)
-    : 0;
+  const matchCount = Math.max(matches.length, result?.matchCount || 0);
+  const imageMatchCount = Math.max(imageMatches.length, result?.imageMatchCount || 0);
 
   return (
     <>
@@ -111,6 +105,10 @@ export default function DuplicateResult({ result, claimId }) {
               </div>
             )}
           </div>
+        ) : matchCount > 0 ? (
+          <p className="muted small">
+            {matchCount} potential claim match{matchCount === 1 ? "" : "es"} found. Record-level details are restricted to adjuster review.
+          </p>
         ) : (
           <p className="muted small">
             No matching claim record found by policy number, incident date, or claim amount.
@@ -188,6 +186,10 @@ export default function DuplicateResult({ result, claimId }) {
                                 − hide image IDs
                               </button>
                             </>
+                          ) : imageMatchCount > 0 ? (
+                            <p className="muted small">
+                              {imageMatchCount} potential image match{imageMatchCount === 1 ? "" : "es"} found. Record-level details are restricted to adjuster review.
+                            </p>
                           ) : (
                             <button
                               type="button"

@@ -87,7 +87,14 @@ npm install
 npm run dev
 ```
 
-Update `frontend/src/api/config.js` with your API Gateway URL.
+Copy `frontend/.env.example` to `frontend/.env.local` and fill in the values from the SAM outputs. Do not commit `.env.local`.
+
+### **Cognito authentication**
+- Deploy the SAM stack with a globally unique `CognitoDomainPrefix`. The default callback/logout origin is `http://localhost:5173`.
+- For a deployed frontend, pass its exact origin as the `FrontendOrigin` parameter and add the same origin to the frontend redirect/logout environment values before rebuilding and redeploying.
+- Run `bash scripts/seed_demo_users.sh <user-pool-id>` and enter separate permanent passwords when prompted. The script creates the adjuster and claimant users without sending invitations.
+- Existing operational claims do not have an owner. Backfill `userId` only where ownership is known before claimants can see those records; claims without an owner remain adjuster-only.
+- Screening outputs are persisted as an authenticated browser-submitted snapshot. They are review signals, not an authoritative or tamper-proof decision; adjusters must verify source evidence.
 
 ---
 
