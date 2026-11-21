@@ -3,16 +3,18 @@ import {
   analyzeClaimImages,
   checkDuplicate,
   checkOutlier,
-  validateEvidenceRelevance,
+  validateEvidence,
   validatePolicy,
 } from "../api/claims";
 
+import { runConsistencyCheck } from "./consistency";
 import {
+  interpretConsistency,
   interpretDuplicate,
+  interpretEvidence,
   interpretForensics,
   interpretOutlier,
   interpretPolicy,
-  interpretRelevance,
 } from "./screening.js";
 
 // One place that wires each screening check
@@ -60,14 +62,27 @@ export const CHECKS = {
     interpret: interpretForensics,
   },
 
-  relevance: {
-    key: "relevance",
+  evidence: {
+    key: "evidence",
     title: "Evidence relevance validation",
-    icon: "file",
+    icon: "search",
 
     run: (claimId, claim, documents) =>
-      validateEvidenceRelevance(claimId, claim, documents),
+      validateEvidence(claimId, claim, documents),
 
-    interpret: interpretRelevance,
+    interpret: interpretEvidence,
+  },
+
+  consistency: {
+    key: "consistency",
+    title: "Cross-document consistency",
+    icon: "layers",
+
+    // Pure frontend check — no backend endpoint. Compares extractedData
+    // across uploaded documents to detect field mismatches.
+    run: (_claimId, _claim, documents) =>
+      Promise.resolve(runConsistencyCheck(documents)),
+
+    interpret: interpretConsistency,
   },
 };

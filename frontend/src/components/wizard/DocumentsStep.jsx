@@ -3,11 +3,33 @@ import Icon from "../Icon";
 import { Callout, Card, EmptyState } from "../ui";
 import FileList from "./FileList";
 
-export default function DocumentsStep({ draft, onBack, onContinue }) {
-  const { files, fileMessages, addFiles, removeFile } = draft;
+const FIELD_LABELS = {
+  policyNumber: "policy number",
+  claimType: "claim type",
+  incidentDate: "incident date",
+  amount: "claim amount",
+  location: "location",
+  description: "description",
+};
+
+export default function DocumentsStep({ draft, onBack, onContinue, hideFooter = false }) {
+  const { files, fileMessages, addFiles, removeFile, prefilledFields } = draft;
   const inputRef = useRef(null);
   const [dragging, setDragging] = useState(false);
   const [needFile, setNeedFile] = useState(false);
+
+  const prefilledCount = Object.keys(prefilledFields || {}).length;
+  const uploadingCount = files.filter((f) => f.status === "uploading").length;
+  const extractingCount = files.filter((f) => f.extractionStatus === "extracting").length;
+  const failedCount = files.filter((f) => f.status === "error").length;
+  const extractionFailedCount = files.filter((f) => f.extractionStatus === "failed").length;
+  const stillUploading = uploadingCount > 0 || extractingCount > 0;
+  const uploadStatus = [
+    uploadingCount > 0 && `Uploading ${uploadingCount} of ${files.length} document${files.length === 1 ? "" : "s"}.`,
+    extractingCount > 0 && `Extracting fields from ${extractingCount} document${extractingCount === 1 ? "" : "s"}.`,
+    failedCount > 0 && `${failedCount} upload${failedCount === 1 ? "" : "s"} failed.`,
+    extractionFailedCount > 0 && `Extraction failed for ${extractionFailedCount} document${extractionFailedCount === 1 ? "" : "s"}; verify the details manually.`,
+  ].filter(Boolean).join(" ") || `All ${files.length} document${files.length === 1 ? "" : "s"} uploaded. Review the extracted details before screening.`;
 
   function handleFiles(list) {
     setNeedFile(false);
@@ -27,8 +49,14 @@ export default function DocumentsStep({ draft, onBack, onContinue }) {
     <Card
       title="Supporting documents"
       icon="upload"
-      description="Attach forms, invoices, reports or photos. Files are uploaded when you submit the claim."
+      description="Upload forms, invoices, reports, or photos to support screening and prefill empty claim fields."
     >
+      <Callout tone="info">
+        <p className="small">
+          Extraction may miss details. Review every field before screening; uploaded files can still support the other checks.
+        </p>
+      </Callout>
+
       <div
         className={`dropzone ${dragging ? "dragging" : ""}`}
         onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
@@ -58,7 +86,32 @@ export default function DocumentsStep({ draft, onBack, onContinue }) {
         {fileMessages.map((m, i) => (
           <Callout key={i} tone={m.tone === "error" ? "danger" : "success"}>{m.text}</Callout>
         ))}
+        {prefilledCount > 0 && (
+          <Callout tone="success">
+            <strong>{prefilledCount} field{prefilledCount === 1 ? "" : "s"} pre-filled from document extraction.</strong>
+            <p>
+              {"Fields filled: "}
+              {Object.entries(prefilledFields).map(([field, file], i, arr) => (
+                <span key={field}>
+                  {FIELD_LABELS[field] || field}{" "}
+                  <span className="muted small">(from {file})</span>
+                  {i < arr.length - 1 ? ", " : "."}
+                </span>
+              ))}
+            </p>
+            <p className="muted small">Review and edit these in Claim information before screening.</p>
+          </Callout>
+        )}
       </div>
+
+      {files.length > 0 && (
+        <div className="upload-status-wrap">
+          <Callout tone={failedCount > 0 ? "danger" : extractionFailedCount > 0 ? "warning" : stillUploading ? "info" : "success"}>
+            <strong>{uploadStatus}</strong>
+            {stillUploading && <p className="small">You can continue reviewing the claim while these steps finish.</p>}
+          </Callout>
+        </div>
+      )}
 
       <div className="section-label">
         <strong>Selected files</strong>
@@ -72,14 +125,21 @@ export default function DocumentsStep({ draft, onBack, onContinue }) {
         </EmptyState>
       )}
 
-      <div className="form-footer">
-        <button type="button" className="btn btn-secondary" onClick={onBack}>
-          <Icon name="arrowLeft" size={17} /> Back to details
-        </button>
-        <button type="button" className="btn btn-primary" onClick={handleContinue}>
-          Review claim <Icon name="arrow" size={17} />
-        </button>
-      </div>
+      {!hideFooter && (
+        <div className="form-footer">
+          <button type="button" className="btn btn-secondary" onClick={onBack}>
+            <Icon name="arrowLeft" size={17} /> Back to details
+          </button>
+          <button type="button" className="btn btn-primary" onClick={handleContinue}>
+            Review claim <Icon name="arrow" size={17} />
+          </button>
+          {stillUploading && (
+            <span className="muted small" aria-live="polite">
+              {uploadingCount > 0 ? `Uploading ${uploadingCount}…` : `Extracting ${extractingCount}…`}
+            </span>
+          )}
+        </div>
+      )}
     </Card>
   );
 }

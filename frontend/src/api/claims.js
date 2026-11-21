@@ -1,6 +1,6 @@
 
-import { ENDPOINTS, UPLOAD_RULES } from "./config.js";
-import { ApiError, postJson, putToPresignedUrl } from "./client.js";
+import { ENDPOINTS, UPLOAD_RULES } from "./config";
+import { ApiError, postJson, putToPresignedUrl } from "./client";
 
 export function resolveContentType(file) {
   const extension = (file.name.split(".").pop() || "").toLowerCase();
@@ -9,7 +9,9 @@ export function resolveContentType(file) {
 }
 
 // Request a presigned URL, upload directly to S3,
-// and return the S3 object key.
+// and return the S3 object key. When claimId is supplied the object is
+// stored under incoming/{claimId}/, which the evidence-relevance
+// endpoint requires for path-prefix validation.
 export async function uploadDocument(file, onProgress, claimId) {
   const contentType = resolveContentType(file);
 
@@ -19,17 +21,17 @@ export async function uploadDocument(file, onProgress, claimId) {
     });
   }
 
-  const payload = {
+  const presignBody = {
     filename: file.name,
     contentType,
     fileSize: file.size,
   };
 
   if (claimId) {
-    payload.claimId = claimId;
+    presignBody.claimId = claimId;
   }
 
-  const presign = await postJson(ENDPOINTS.presign, payload);
+  const presign = await postJson(ENDPOINTS.presign, presignBody);
 
   if (!presign.uploadUrl || !presign.key) {
     throw new ApiError(
@@ -120,7 +122,7 @@ export function analyzeClaimImages(claimId, documents = []) {
     });
   }
 
-  const boundedKeys = imageKeys.slice(0, 3);
+  const boundedKeys = imageKeys.slice(0, 2);
 
   return postJson(ENDPOINTS.analyzeImage, {
     claimId,
@@ -128,35 +130,32 @@ export function analyzeClaimImages(claimId, documents = []) {
   });
 }
 
-// Validate evidence relevance using Amazon Bedrock Converse API.
-// Accepts both image and PDF document evidence, bounded to maximum 3 items.
-export function validateEvidenceRelevance(claimId, claim = {}, documents = []) {
-  const evidenceItems = documents
-    .filter((doc) => {
-      const ext = (doc.name?.split(".").pop() || "").toLowerCase();
-      const type = doc.type || "";
-      return (
-        ["image/jpeg", "image/png", "application/pdf"].includes(type) ||
-        ["jpg", "jpeg", "png", "pdf"].includes(ext)
-      );
-    })
-    .map((doc) => {
-      const ext = (doc.name?.split(".").pop() || "").toLowerCase();
-      let contentType = doc.type;
-      if (!contentType) {
-        if (["jpg", "jpeg"].includes(ext)) contentType = "image/jpeg";
-        else if (ext === "png") contentType = "image/png";
-        else if (ext === "pdf") contentType = "application/pdf";
-      }
-      return {
-        key: doc.s3Key,
-        contentType,
-        fileName: doc.name,
-      };
-    })
-    .filter((item) => item.key);
+// Send an uploaded document's S3 key to the Bedrock extraction Lambda.
+// Returns structured fields extracted from the document (policy number,
+// claim type, dates, amounts, etc.) plus missing/uncertain field lists.
+// The backend treats document contents as untrusted data, never instructions.
+export function extractDocument(key, contentType) {
+  return postJson(ENDPOINTS.extractDocument, {
+    key,
+    contentType,
+  });
+}
 
-  if (evidenceItems.length === 0) {
+// Submit uploaded evidence (images + PDFs) to the Bedrock evidence-relevance
+// Lambda. The backend assesses whether each item visually/contextually
+// supports the reported claim type and incident narrative.
+// Evidence keys MUST live under incoming/{claimId}/ for the backend's
+// path-prefix validation, so uploadDocument must be called with claimId.
+export function validateEvidence(claimId, claim, documents = []) {
+  const evidence = documents
+    .filter((doc) => doc.s3Key)
+    .slice(0, 3)
+    .map((doc) => ({
+      key: doc.s3Key,
+      contentType: doc.type || doc.contentType || "application/octet-stream",
+    }));
+
+  if (evidence.length === 0) {
     return Promise.resolve({
       skipped: true,
       reason: "NO_EVIDENCE",
@@ -165,19 +164,14 @@ export function validateEvidenceRelevance(claimId, claim = {}, documents = []) {
       overallVerdict: "UNCERTAIN",
       requiresReview: false,
       evidenceResults: [],
-      message: "No images or PDF documents were submitted for evidence relevance analysis.",
+      message: "No uploaded evidence was available for relevance validation.",
     });
   }
 
-  const boundedItems = evidenceItems.slice(0, 3);
-
   return postJson(ENDPOINTS.validateEvidence, {
     claimId,
-    claimType: claim.claimType || "Auto",
-    incidentDescription:
-      claim.incidentDescription ||
-      claim.description ||
-      "Insurance claim submission evidence",
-    evidence: boundedItems,
+    claimType: claim.claimType,
+    incidentDescription: claim.description || claim.incidentDescription || "",
+    evidence,
   });
 }

@@ -8,7 +8,7 @@
 
 import { humanize, toNumber } from "./format.js";
 
-export const CHECK_ORDER = ["policy", "duplicate", "outlier", "forensics", "relevance"];
+export const CHECK_ORDER = ["policy", "duplicate", "outlier", "forensics", "evidence", "consistency"];
 
 // ---------- helpers ----------
 
@@ -575,27 +575,89 @@ export function interpretForensics(response) {
   };
 }
 
-export function interpretRelevance(response) {
-  if (!response || typeof response !== "object") {
+// ---------- cross-document consistency ----------
+
+export function interpretConsistency(response) {
+  if (!response) {
     return {
       state: "inconclusive",
-      kind: "unavailable",
-      label: "Evidence relevance unavailable",
-      overallVerdict: "UNCERTAIN",
-      overallStatus: "UNAVAILABLE",
-      requiresReview: true,
+      kind: "unknown",
+      label: "No consistency response returned",
+      rawStatus: null,
+      flags: [],
+      summary: null,
+    };
+  }
+
+  const rawStatus = response.status || "UNKNOWN";
+  const flags = Array.isArray(response.flags) ? response.flags : [];
+  const summary = response.summary || null;
+
+  if (rawStatus === "SKIPPED") {
+    return {
+      state: "inconclusive",
+      kind: "skipped",
+      label: response.message || "Not enough documents for cross-document comparison",
+      rawStatus,
+      flags,
+      summary,
+      documentsAnalyzed: response.documentsAnalyzed || 0,
+    };
+  }
+
+  if (rawStatus === "CONSISTENT") {
+    return {
+      state: "pass",
+      kind: "consistent",
+      label: response.message || "All documents are consistent",
+      rawStatus,
+      flags,
+      summary,
+      documentsAnalyzed: response.documentsAnalyzed || 0,
+    };
+  }
+
+  // status === "REVIEW"
+  return {
+    state: "review",
+    kind: "mismatch",
+    label: response.message || `${flags.length} inconsistencies found across documents`,
+    rawStatus,
+    flags,
+    summary,
+    documentsAnalyzed: response.documentsAnalyzed || 0,
+  };
+}
+
+// ---------- evidence relevance ----------
+
+const EVIDENCE_VERDICT_PASS = new Set(["RELEVANT"]);
+const EVIDENCE_VERDICT_REVIEW = new Set(["POTENTIAL_MISMATCH"]);
+const EVIDENCE_VERDICT_INCONCLUSIVE = new Set(["UNCERTAIN"]);
+
+export function interpretEvidence(response) {
+  if (!response) {
+    return {
+      state: "inconclusive",
+      kind: "unknown",
+      label: "No evidence-relevance response returned",
+      rawStatus: null,
+      overallVerdict: null,
+      requiresReview: false,
       evidenceResults: [],
       disclaimer: null,
     };
   }
 
+  // Skipped (no evidence uploaded) is treated as a neutral pass — it does
+  // not raise a flag, but it also does not confirm anything.
   if (response.skipped) {
     return {
       state: "pass",
       kind: "skipped",
-      label: response.message || "No evidence files submitted",
+      label: response.message || "No evidence uploaded for relevance validation",
+      rawStatus: "SKIPPED",
       overallVerdict: "UNCERTAIN",
-      overallStatus: "SKIPPED",
       requiresReview: false,
       evidenceResults: [],
       disclaimer: null,
@@ -603,54 +665,67 @@ export function interpretRelevance(response) {
     };
   }
 
-  const overallStatus = response.overallStatus || "COMPLETED";
-  const overallVerdict = response.overallVerdict || "UNCERTAIN";
-  const requiresReview = Boolean(response.requiresReview);
+  const rawStatus = response.overallStatus || "UNKNOWN";
+  const overallVerdict = response.overallVerdict || null;
+  const requiresReview = response.requiresReview === true;
   const evidenceResults = Array.isArray(response.evidenceResults)
     ? response.evidenceResults
     : [];
-  const disclaimer = response.disclaimer || null;
+  const disclaimer = response.disclaimer ?? null;
+
+  const mismatches = evidenceResults.filter(
+    (r) => r.verdict === "POTENTIAL_MISMATCH"
+  );
+  const uncertain = evidenceResults.filter(
+    (r) => r.verdict === "UNCERTAIN" || r.status === "ERROR"
+  );
+  const relevant = evidenceResults.filter(
+    (r) => r.verdict === "RELEVANT" && r.status === "COMPLETED"
+  );
 
   let state;
   let label;
   let kind;
 
-  if (overallVerdict === "RELEVANT" && !requiresReview && overallStatus === "COMPLETED") {
+  if (overallVerdict && EVIDENCE_VERDICT_REVIEW.has(overallVerdict)) {
+    state = "review";
+    kind = "mismatch";
+    label = `Evidence mismatch detected (${mismatches.length} of ${evidenceResults.length} item${evidenceResults.length === 1 ? "" : "s"} flagged)`;
+  } else if (overallVerdict && EVIDENCE_VERDICT_PASS.has(overallVerdict) && rawStatus === "COMPLETED") {
     state = "pass";
-    kind = "completed";
-    label = `Evidence supports claim narrative (${evidenceResults.length} item${
-      evidenceResults.length === 1 ? "" : "s"
-    } relevant)`;
-  } else if (overallVerdict === "POTENTIAL_MISMATCH") {
-    state = "review";
-    kind = "review";
-    label = "Potential mismatch detected between evidence and claim narrative";
-  } else if (overallVerdict === "UNCERTAIN") {
-    state = "review";
-    kind = "review";
-    label = "Evidence relevance is uncertain or unreadable (analyst review needed)";
-  } else if (overallStatus === "PARTIAL") {
-    state = "review";
-    kind = "partial";
-    label = "Evidence partially validated (some items encountered errors)";
-  } else if (overallStatus === "FAILED") {
+    kind = "relevant";
+    label = `All ${evidenceResults.length} evidence item${evidenceResults.length === 1 ? "" : "s"} assessed as relevant`;
+  } else if (overallVerdict && EVIDENCE_VERDICT_INCONCLUSIVE.has(overallVerdict)) {
+    state = "inconclusive";
+    kind = "uncertain";
+    label = requiresReview
+      ? `Evidence relevance uncertain (${uncertain.length} of ${evidenceResults.length} item${evidenceResults.length === 1 ? "" : "s"} inconclusive or failed)`
+      : "Evidence relevance could not be fully determined";
+  } else if (rawStatus === "FAILED") {
     state = "inconclusive";
     kind = "failed";
-    label = "Evidence relevance validation failed";
+    label = "Evidence relevance analysis failed for all items";
+  } else if (rawStatus === "PARTIAL") {
+    state = "inconclusive";
+    kind = "partial";
+    label = `Partially completed (${relevant.length} relevant, ${uncertain.length} inconclusive)`;
   } else {
     state = "inconclusive";
     kind = "unknown";
-    label = `Relevance status: ${overallStatus}`;
+    label = `Status: ${rawStatus}`;
   }
 
   return {
     state,
     kind,
     label,
-    overallStatus,
+    rawStatus,
     overallVerdict,
     requiresReview,
     evidenceResults,
+    mismatches,
+    uncertainCount: uncertain.length,
+    relevantCount: relevant.length,
     disclaimer,
   };
 }
@@ -669,7 +744,7 @@ export const SUMMARY_COPY = {
     tone: "success",
     title: "No configured indicators found",
     text: "None of the configured checks raised an indicator for this claim.",
-    next: "Continue standard claims handling. These checks only cover policy rules, duplicate matching and claim-amount range. They do not confirm the claim is genuine.",
+    next: "Continue standard claims handling. These checks cover policy rules, duplicate matching, claim-amount range, image forensics and evidence relevance. They do not confirm the claim is genuine.",
   },
 
   review: {
@@ -748,4 +823,48 @@ export function summarize(checks) {
       pending,
     },
   };
+}
+
+export function getChecksNeedingAttention(checks) {
+  const priority = { review: 0, error: 1, inconclusive: 2 };
+
+  return CHECK_ORDER
+    .map((key) => {
+      const check = checks[key];
+      const state = check?.status === "error"
+        ? "error"
+        : check?.status === "done"
+          ? check.result?.state
+          : null;
+      return { key, state };
+    })
+    .filter(({ state }) => Object.prototype.hasOwnProperty.call(priority, state))
+    .sort((a, b) => priority[a.state] - priority[b.state])
+    .map(({ key }) => key);
+}
+
+export function filterHistoryRecords(records, { query = "", outcome = "all", sortOrder = "newest" } = {}) {
+  const normalizedQuery = query.trim().toLowerCase();
+
+  return records
+    .filter((record) => {
+      const matchesQuery = !normalizedQuery || [
+        record.id,
+        record.claim?.policyNumber,
+        record.claim?.claimType,
+      ].some((value) => String(value || "").toLowerCase().includes(normalizedQuery));
+
+      if (!matchesQuery || outcome === "all") return matchesQuery;
+
+      const summaryKey = summarize(record.checks).key;
+      if (outcome === "clear") return summaryKey === "clear";
+      if (outcome === "review") return summaryKey === "review";
+      if (outcome === "incomplete") return summaryKey === "partial" || summaryKey === "failed";
+      if (outcome === "progress") return summaryKey === "progress";
+      return true;
+    })
+    .sort((a, b) => {
+      const difference = Number(a.submittedAt) - Number(b.submittedAt);
+      return sortOrder === "oldest" ? difference : -difference;
+    });
 }

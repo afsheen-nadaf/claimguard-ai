@@ -1,7 +1,7 @@
 import Icon from "../Icon";
-import { Spinner } from "../ui";
+import { Spinner, StatusBadge } from "../ui";
 import { CHECKS } from "../../lib/checks";
-import { CHECK_ORDER } from "../../lib/screening";
+import { CHECK_ORDER, getChecksNeedingAttention } from "../../lib/screening";
 
 const TONE_ICON = { info: "clock", success: "checkCircle", warning: "alert", danger: "xCircle" };
 
@@ -32,6 +32,7 @@ const STATE_ICON = { pass: "checkCircle", review: "alert", inconclusive: "info",
 
 export default function SummaryPanel({ summary, checks }) {
   const { counts } = summary;
+  const attentionKeys = getChecksNeedingAttention(checks);
   return (
     <section className={`card summary-panel summary-${summary.tone}`} aria-live="polite" aria-labelledby="summary-title">
       <div className="summary-head">
@@ -52,17 +53,66 @@ export default function SummaryPanel({ summary, checks }) {
         {counts.pending > 0 && <div className="count count-pending"><dt>Running</dt><dd>{counts.pending}</dd></div>}
       </dl>
 
-      <ul className="reason-list">
-        {CHECK_ORDER.map((key) => {
-          const reason = reasonFor(key, checks[key]);
-          return (
-            <li key={key} className={`reason reason-${reason.state}`}>
-              {reason.state === "running" ? <Spinner label="" /> : <Icon name={STATE_ICON[reason.state] || "info"} size={17} />}
-              <span><strong>{CHECKS[key].title}.</strong> {reason.text}</span>
-            </li>
-          );
-        })}
-      </ul>
+      <section className="triage-panel" aria-labelledby="triage-title">
+        <div className="triage-heading">
+          <div>
+            <div className="eyebrow">RESULTS TRIAGE</div>
+            <h3 id="triage-title">{attentionKeys.length ? "Priority review" : "Review queue"}</h3>
+          </div>
+          {attentionKeys.length > 0 && <span className="triage-count">{attentionKeys.length} item{attentionKeys.length === 1 ? "" : "s"}</span>}
+        </div>
+
+        {attentionKeys.length > 0 ? (
+          <>
+            <ul className="triage-list">
+              {attentionKeys.map((key) => {
+                const check = checks[key];
+                const reason = reasonFor(key, check);
+                const state = check.status === "error" ? "error" : check.result?.state;
+                return (
+                  <li key={key}>
+                    <a className="triage-item" href={`#check-${key}`} aria-label={`Review ${CHECKS[key].title}: ${reason.text}`}>
+                      <span className={`triage-icon triage-icon-${state}`}><Icon name={STATE_ICON[state] || "info"} size={17} /></span>
+                      <span className="triage-copy">
+                        <strong>{CHECKS[key].title}</strong>
+                        <span>{reason.text}</span>
+                      </span>
+                      <StatusBadge state={state} />
+                      <Icon name="arrow" size={16} className="triage-arrow" />
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+            {counts.pending > 0 && <p className="muted small">{counts.pending} other check{counts.pending === 1 ? " is" : "s are"} still running.</p>}
+          </>
+        ) : counts.pending > 0 ? (
+          <div className="triage-empty triage-pending">
+            <Spinner label="" />
+            <p>No review flags have appeared yet. {counts.pending} check{counts.pending === 1 ? " is" : "s are"} still running.</p>
+          </div>
+        ) : (
+          <div className="triage-empty">
+            <Icon name="checkCircle" size={18} />
+            <p>All completed checks passed. Continue standard handling; this is not a fraud determination.</p>
+          </div>
+        )}
+      </section>
+
+      <details className="all-check-details">
+        <summary>View all six check summaries</summary>
+        <ul className="reason-list">
+          {CHECK_ORDER.map((key) => {
+            const reason = reasonFor(key, checks[key]);
+            return (
+              <li key={key} className={`reason reason-${reason.state}`}>
+                {reason.state === "running" ? <Spinner label="" /> : <Icon name={STATE_ICON[reason.state] || "info"} size={17} />}
+                <a href={`#check-${key}`}><strong>{CHECKS[key].title}.</strong> {reason.text}</a>
+              </li>
+            );
+          })}
+        </ul>
+      </details>
 
       <div className="next-step">
         <strong>Recommended next step</strong>

@@ -664,97 +664,197 @@ Resources:
 
 
 
-# --------------------------------------------------
+  # --------------------------------------------------
 
-# OUTPUTS
-
-# --------------------------------------------------
-
-
+  # IMAGE FORENSICS LAMBDA (CONTAINER IMAGE — Smaug runs locally)
 
   # --------------------------------------------------
-  # IMAGE FORENSICS LAMBDA
-  # --------------------------------------------------
+
+
 
   ImageForensicsFunction:
+
     Type: AWS::Serverless::Function
+
     Properties:
-      CodeUri: image_forensics_api/
-      Handler: app.lambda_handler
-      Runtime: python3.14
-      Timeout: 180
-      MemorySize: 2048
+
+      PackageType: Image
+
+      Timeout: 300
+      FunctionUrlConfig:
+        AuthType: NONE
+        Cors:
+          AllowOrigins:
+            - "http://localhost:5173"
+          AllowMethods:
+            - POST
+          AllowHeaders:
+            - content-type
+          MaxAge: 3000
+
+      MemorySize: 3008
+
       EphemeralStorage:
+
         Size: 1024
 
+      ImageConfig:
+
+        Command:
+
+          - app.lambda_handler
+
+
+
       Environment:
+
         Variables:
+
           CLAIM_PACKETS_BUCKET: !Ref ClaimPacketsBucket
-          MAX_IMAGES_PER_CLAIM: "3"
+
+          MAX_IMAGES_PER_CLAIM: "2"
+
           MAX_IMAGE_BYTES: "10485760"
+
           CORS_ORIGIN: "http://localhost:5173"
-          SMAUG_SPACE_ID: "afsheenadaf/claimguard-smaug"
+
+          SMAUG_MIN_REMAINING_TIME_MS: "20000"
+
+          HF_HUB_OFFLINE: "1"
+
+
 
       Policies:
+
         - Statement:
+
             - Sid: ReadUploadedImagesForForensics
+
               Effect: Allow
+
               Action:
+
                 - s3:GetObject
+
               Resource: !Sub "${ClaimPacketsBucket.Arn}/incoming/*"
 
+
+
       Events:
+
         AnalyzeClaimImages:
+
           Type: Api
+
           Properties:
+
             Path: /claims/analyze-image
+
             Method: POST
 
+
+
+    Metadata:
+
+      Dockerfile: Dockerfile
+
+      DockerContext: image_forensics_api
+
+      DockerTag: latest
+
+
+
   # --------------------------------------------------
+
   # EVIDENCE RELEVANCE LAMBDA
+
   # --------------------------------------------------
+
+
 
   EvidenceRelevanceFunction:
+
     Type: AWS::Serverless::Function
+
     Properties:
+
       CodeUri: evidence_relevance_api/
+
       Handler: app.lambda_handler
+
       Runtime: python3.14
+
       Timeout: 29
+
       MemorySize: 512
 
+
+
       Environment:
+
         Variables:
+
           CLAIM_PACKETS_BUCKET: !Ref ClaimPacketsBucket
+
           BEDROCK_MODEL_ID: amazon.nova-lite-v1:0
+
           CORS_ORIGIN: "http://localhost:5173"
 
+
+
       Policies:
+
         - Statement:
+
             - Sid: ReadUploadedClaimEvidence
+
               Effect: Allow
+
               Action:
+
                 - s3:GetObject
+
               Resource: !Sub "${ClaimPacketsBucket.Arn}/incoming/*"
 
+
+
             - Sid: InvokeNovaLiteDirect
+
               Effect: Allow
+
               Action:
+
                 - bedrock:InvokeModel
+
               Resource: !Sub "arn:${AWS::Partition}:bedrock:${AWS::Region}::foundation-model/amazon.nova-lite-v1:0"
 
+
+
       Events:
+
         ValidateEvidence:
+
           Type: Api
+
           Properties:
+
             Path: /claims/validate-evidence
+
             Method: POST
+
+
 
 Outputs:
 
+
+
   ValidateEvidenceApi:
+
     Description: Endpoint for evidence relevance validation using Amazon Bedrock
+
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/Prod/claims/validate-evidence"
+
+
 
   ClaimPacketsBucketName:
 
@@ -809,3 +909,7 @@ Outputs:
     Description: Endpoint for statistical claim-amount outlier detection
 
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/Prod/claims/check-outlier"
+
+  ImageForensicsUrl:
+    Description: Direct Lambda Function URL for image forensics (no 29s limit)
+    Value: !GetAtt ImageForensicsFunctionUrl.FunctionUrl

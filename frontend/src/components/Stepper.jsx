@@ -1,6 +1,6 @@
 import Icon from "./Icon";
 
-const STEPS = ["Claim details", "Documents", "Review & submit", "Screening results"];
+const STEPS = ["Claim & documents", "Review & submit", "Screening results"];
 
 export default function Stepper({ current, onStepClick }) {
   return (
@@ -8,7 +8,7 @@ export default function Stepper({ current, onStepClick }) {
       {STEPS.map((label, i) => {
         const number = i + 1;
         const state = number === current ? "current" : number < current ? "complete" : "upcoming";
-        const clickable = onStepClick && number < current && current < 4;
+        const clickable = onStepClick && number < current && current < 3;
         const inner = (
           <>
             <span className="step-dot">{state === "complete" ? <Icon name="check" size={15} /> : number}</span>

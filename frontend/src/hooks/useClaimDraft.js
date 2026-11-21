@@ -1,7 +1,7 @@
 
 import { useCallback, useRef, useState } from "react";
-import { UPLOAD_RULES } from "../api/config";
-import { uploadDocument } from "../api/claims";
+import { CLAIM_TYPES, UPLOAD_RULES } from "../api/config";
+import { extractDocument, uploadDocument } from "../api/claims";
 import {
   EMPTY_FORM,
   newClaimId,
@@ -12,24 +12,162 @@ import { formatBytes } from "../lib/format";
 
 let fileCounter = 0;
 
+function withWorkflowStep(current, step) {
+  return typeof current === "number"
+    ? { step, entryMode: null }
+    : { ...current, step };
+}
+
+// Maps Bedrock extraction output fields to the claim-form field names.
+// Only these fields are auto-filled from uploaded documents.
+const EXTRACTION_FIELD_MAP = {
+  policyNumber: "policyNumber",
+  claimType: "claimType",
+  incidentDate: "incidentDate",
+  claimAmountINR: "amount",
+  incidentLocation: "location",
+  incidentDescription: "description",
+};
+
+// Synonyms: documents may use different terms for the same claim type.
+// In India, "motor" insurance = "auto" insurance. Keys are lowercased.
+const CLAIM_TYPE_SYNONYMS = {
+  motor: "Auto",
+  vehicle: "Auto",
+  car: "Auto",
+  two_wheeler: "Auto",
+  bike: "Auto",
+  house: "Property",
+  home: "Property",
+  fire: "Property",
+  medical: "Health",
+  mediclaim: "Health",
+  hospital: "Health",
+  trip: "Travel",
+  flight: "Travel",
+  abroad: "Travel",
+};
+
+// Match an extracted claim-type string against the canonical CLAIM_TYPES.
+// The model may return "auto", "Auto", "motor insurance", etc.
+function normalizeClaimType(value) {
+  if (!value || typeof value !== "string") return null;
+  const lower = value.trim().toLowerCase();
+
+  // First try a direct match against canonical types.
+  const direct = CLAIM_TYPES.find(
+    (t) => t.toLowerCase() === lower || lower.includes(t.toLowerCase())
+  );
+  if (direct) return direct;
+
+  // Then check the synonym table — look for any synonym key that appears
+  // as a substring in the extracted value (e.g. "motor insurance" → "motor").
+  for (const [synonym, canonical] of Object.entries(CLAIM_TYPE_SYNONYMS)) {
+    if (lower.includes(synonym)) {
+      return canonical;
+    }
+  }
+
+  return null;
+}
+
+// Given an extractedData object from the extraction endpoint, return a
+// partial form patch containing only fields that are currently empty and
+// for which the extracted value is non-null and valid. Returns:
+// - patch: the field values to merge into the form
+// - filledFields: field names that were filled (were empty, now have values)
+// - skippedFields: field names that were present in the extracted data but
+//   skipped because the form field was already filled (by the user or by
+//   an earlier document's extraction). This lets the UI distinguish "the
+//   document had no extractable fields" from "fields were already filled."
+function buildExtractionPatch(extractedData, currentForm) {
+  if (!extractedData || typeof extractedData !== "object") {
+    return { patch: {}, filledFields: [], skippedFields: [] };
+  }
+
+  const patch = {};
+  const filledFields = [];
+  const skippedFields = [];
+
+  for (const [extractKey, formKey] of Object.entries(EXTRACTION_FIELD_MAP)) {
+    const rawValue = extractedData[extractKey];
+    if (rawValue === null || rawValue === undefined || rawValue === "") continue;
+
+    // Never overwrite a field the user has already filled.
+    if (currentForm[formKey] && String(currentForm[formKey]).trim() !== "") {
+      skippedFields.push(formKey);
+      continue;
+    }
+
+    if (extractKey === "claimType") {
+      const normalized = normalizeClaimType(rawValue);
+      if (normalized) {
+        patch[formKey] = normalized;
+        filledFields.push(formKey);
+      }
+    } else if (extractKey === "claimAmountINR") {
+      const n = Number(rawValue);
+      if (Number.isFinite(n) && n > 0) {
+        patch[formKey] = String(n);
+        filledFields.push(formKey);
+      }
+    } else if (extractKey === "incidentDate") {
+      const dateStr = String(rawValue).trim().slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        patch[formKey] = dateStr;
+        filledFields.push(formKey);
+      }
+    } else {
+      const strValue = String(rawValue).trim();
+      if (strValue) {
+        patch[formKey] = strValue;
+        filledFields.push(formKey);
+      }
+    }
+  }
+
+  return { patch, filledFields, skippedFields };
+}
+
 // Holds the in-progress claim so the user can move between steps
 // without losing what they typed or selected.
 export function useClaimDraft() {
-  const [step, setStep] = useState(1);
+  const [workflow, setWorkflow] = useState(1);
+  const step = typeof workflow === "number" ? workflow : workflow.step;
+  const entryMode = typeof workflow === "number" ? null : workflow.entryMode;
+  const setStep = (nextStep) => setWorkflow((current) => withWorkflowStep(current, nextStep));
+  const setEntryMode = (nextEntryMode) => {
+    setWorkflow((current) => typeof current === "number"
+      ? { step: 1, entryMode: nextEntryMode }
+      : { ...current, step: 1, entryMode: nextEntryMode });
+  };
   const [form, setForm] = useState(EMPTY_FORM);
   const [touched, setTouched] = useState({});
   const [attempted, setAttempted] = useState(false);
 
   // Each file can now also contain:
-  // s3Key, contentType
+  // s3Key, contentType, extractionStatus, extractionError, extractedData,
+  // extractedFields (the form fields filled from this document)
   const [files, setFiles] = useState([]);
 
   const [fileMessages, setFileMessages] = useState([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
 
-  const submittingRef = useRef(false);
+  // Tracks which form fields were pre-filled from document extraction,
+  // and which file contributed them. Shape: { [formField]: fileName }
+  const [prefilledFields, setPrefilledFields] = useState({});
+
   const claimIdRef = useRef(null);
+
+  // Lazily generate the claim ID so it exists before the first upload
+  // (the upload places files under incoming/{claimId}/, which the
+  // evidence-relevance endpoint requires).
+  const ensureClaimId = useCallback(() => {
+    if (!claimIdRef.current) {
+      claimIdRef.current = newClaimId();
+    }
+    return claimIdRef.current;
+  }, []);
 
   const setField = useCallback(
     (key, value) => {
@@ -51,7 +189,108 @@ export function useClaimDraft() {
     []
   );
 
-  
+  // Update one file entry in state by id. Defined before uploadAndExtract
+  // and addFiles so they can reference it without a forward declaration.
+  const patchFile = useCallback((id, patch) => {
+    setFiles((cur) =>
+      cur.map((file) =>
+        file.id === id
+          ? { ...file, ...patch }
+          : file
+      )
+    );
+  }, []);
+
+  // Upload one file to S3, then call the Bedrock extraction endpoint and
+  // merge any extracted fields into the claim form. Updates file state
+  // in-place via patchFile. Extraction failures are non-fatal: the file
+  // is still uploaded and the claim can still be submitted.
+  const uploadAndExtract = useCallback(
+    async (entry, claimId) => {
+      // 1. Upload to S3 via presigned URL.
+      try {
+        const uploaded = await uploadDocument(
+          entry.file,
+          (progress) => patchFile(entry.id, { progress }),
+          claimId
+        );
+
+        patchFile(entry.id, {
+          status: "done",
+          progress: 1,
+          s3Key: uploaded.key,
+          contentType: uploaded.contentType,
+        });
+
+        // 2. Auto-extract fields via Bedrock (non-blocking on submit).
+        patchFile(entry.id, { extractionStatus: "extracting" });
+
+        try {
+          const result = await extractDocument(
+            uploaded.key,
+            uploaded.contentType
+          );
+
+          const extractedData =
+            result && result.extractedData ? result.extractedData : null;
+
+          // 3. Merge extracted fields into the form (only empty fields).
+          if (extractedData) {
+            setForm((cur) => {
+              const { patch, filledFields, skippedFields } = buildExtractionPatch(
+                extractedData,
+                cur
+              );
+
+              if (filledFields.length > 0) {
+                // Record which file contributed which fields.
+                setPrefilledFields((prev) => {
+                  const next = { ...prev };
+                  for (const field of filledFields) {
+                    if (!next[field]) {
+                      next[field] = entry.file.name;
+                    }
+                  }
+                  return next;
+                });
+              }
+
+              patchFile(entry.id, {
+                extractionStatus: "extracted",
+                extractedData,
+                extractedFields: filledFields,
+                skippedFields,
+              });
+
+              return { ...cur, ...patch };
+            });
+          } else {
+            patchFile(entry.id, {
+              extractionStatus: "extracted",
+              extractedData: null,
+              extractedFields: [],
+              skippedFields: [],
+            });
+          }
+        } catch (extractError) {
+          // Extraction failed — the file is still uploaded and usable.
+          patchFile(entry.id, {
+            extractionStatus: "failed",
+            extractionError:
+              extractError.message ||
+              "Field extraction could not be completed.",
+          });
+        }
+      } catch (uploadError) {
+        patchFile(entry.id, {
+          status: "error",
+          error: uploadError.message || "Upload failed.",
+        });
+      }
+    },
+    [patchFile]
+  );
+
   const addFiles = useCallback(
     (fileList) => {
       const incoming = Array.from(fileList || []);
@@ -119,11 +358,16 @@ export function useClaimDraft() {
           accepted.push({
             id: `f${++fileCounter}`,
             file,
-            status: "ready",
+            status: "uploading",
             progress: 0,
             error: null,
             s3Key: null,
             contentType: null,
+            extractionStatus: "pending",
+            extractionError: null,
+            extractedData: null,
+            extractedFields: [],
+            skippedFields: [],
           });
 
           if (isImage) {
@@ -135,165 +379,131 @@ export function useClaimDraft() {
       if (accepted.length) {
         setFiles((cur) => [...cur, ...accepted]);
 
-        messages.push({
-          tone: "success",
-          text: `${accepted.length} file${accepted.length === 1 ? "" : "s"} added. Documents upload when you submit the claim.`,
-        });
+        // Kick off uploads immediately for each accepted file.
+        // The claim ID is generated here so files land under
+        // incoming/{claimId}/, which evidence-relevance requires.
+        const claimId = ensureClaimId();
+
+        for (const entry of accepted) {
+          uploadAndExtract(entry, claimId);
+        }
       }
 
       setFileMessages(messages);
     },
-    [files]
+    [files, ensureClaimId, uploadAndExtract]
   );
 
   const removeFile = useCallback((id) => {
-    setFiles((cur) => cur.filter((file) => file.id !== id));
+    setFiles((cur) => {
+      const removed = cur.find((file) => file.id === id);
+      if (removed) {
+        const removedName = removed.file.name;
+        // Clean up prefilledFields entries that referenced this file.
+        // Only remove the tracking entry — the form field value itself
+        // stays, since the user may have already edited it.
+        setPrefilledFields((prev) => {
+          const next = {};
+          for (const [field, fileName] of Object.entries(prev)) {
+            if (fileName !== removedName) {
+              next[field] = fileName;
+            }
+          }
+          return next;
+        });
+      }
+      return cur.filter((file) => file.id !== id);
+    });
     setFileMessages([]);
   }, []);
 
-  const patchFile = (id, patch) => {
-    setFiles((cur) =>
-      cur.map((file) =>
-        file.id === id
-          ? { ...file, ...patch }
-          : file
-      )
-    );
-  };
-
   const reset = useCallback(() => {
-    setStep(1);
+    setWorkflow(1);
     setForm(EMPTY_FORM);
     setTouched({});
     setAttempted(false);
     setFiles([]);
     setFileMessages([]);
     setSubmitError("");
+    setPrefilledFields({});
     claimIdRef.current = null;
   }, []);
 
   const errors = validateClaim(form);
 
-  // Upload every file that is not already uploaded.
-  // Preserve successful uploads and their S3 keys across retries.
+  // Files now upload immediately when added in the Documents step, so
+  // submit only needs to verify all uploads finished and pass the S3
+  // keys + claim snapshot to the screening runner. This guards against
+  // three blocking conditions: invalid form, no files, or files that
+  // are still uploading or failed to upload.
   const submit = useCallback(
-    async (onReady) => {
-      if (submittingRef.current) return;
-
+    (onReady) => {
       if (Object.keys(validateClaim(form)).length > 0) {
         setAttempted(true);
-        setStep(1);
+        setWorkflow((current) => withWorkflowStep(current, 1));
         return;
       }
 
       if (files.length === 0) {
-        setStep(2);
+        setWorkflow((current) => withWorkflowStep(current, 2));
         return;
       }
 
-      submittingRef.current = true;
-      setIsSubmitting(true);
-      setSubmitError("");
-
-      // Reuse the same claim ID when retrying.
-      if (!claimIdRef.current) {
-        claimIdRef.current = newClaimId();
-      }
-
-      const claimId = claimIdRef.current;
-
-      // Local map ensures newly uploaded S3 keys are available
-      // immediately, without waiting for React state updates.
-      const uploadedDocuments = new Map(
-        files.map((file) => [
-          file.id,
-          {
-            key: file.s3Key,
-            contentType: file.contentType,
-          },
-        ])
-      );
-
-      let failed = 0;
-
-      for (const entry of files.filter(
-        (file) => file.status !== "done"
-      )) {
-        patchFile(entry.id, {
-          status: "uploading",
-          progress: 0,
-          error: null,
-        });
-
-        try {
-          const uploaded = await uploadDocument(
-            entry.file,
-            (progress) =>
-              patchFile(entry.id, {
-                progress,
-              }),
-            claimId
-          );
-
-          // Save the returned S3 key immediately.
-          uploadedDocuments.set(entry.id, {
-            key: uploaded.key,
-            contentType: uploaded.contentType,
-          });
-
-          patchFile(entry.id, {
-            status: "done",
-            progress: 1,
-            s3Key: uploaded.key,
-            contentType: uploaded.contentType,
-          });
-        } catch (error) {
-          failed += 1;
-
-          patchFile(entry.id, {
-            status: "error",
-            error: error.message || "Upload failed.",
-          });
-        }
-      }
-
-      submittingRef.current = false;
-      setIsSubmitting(false);
-
-      if (failed > 0) {
+      const failedFiles = files.filter((f) => f.status === "error");
+      if (failedFiles.length > 0) {
         setSubmitError(
-          `${failed} document${failed === 1 ? "" : "s"} failed to upload, so no screening was run and the claim was not registered. Retry to upload only the failed files.`
+          `${failedFiles.length} document${failedFiles.length === 1 ? "" : "s"} failed to upload, so no screening was run. Remove and re-add the failed file${failedFiles.length === 1 ? "" : "s"} to retry.`
         );
-
         return;
       }
 
-      // Pass the S3 object keys to the next stage.
+      // Defensive guard: if any file is still uploading, its s3Key is null,
+      // which would silently break the screening checks. Block submit and
+      // tell the user to wait.
+      const stillUploading = files.filter((f) => f.status !== "done");
+      if (stillUploading.length > 0) {
+        setSubmitError(
+          `${stillUploading.length} document${stillUploading.length === 1 ? "" : "s"} are still uploading. Please wait for uploads to finish before screening.`
+        );
+        return;
+      }
+
+      // Extra guard: every file must have a non-null s3Key before screening.
+      const missingKeys = files.filter((f) => !f.s3Key);
+      if (missingKeys.length > 0) {
+        setSubmitError(
+          "One or more uploaded documents are missing their storage key. Remove and re-add the affected files."
+        );
+        return;
+      }
+
+      const claimId = ensureClaimId();
+
+      // Pass the S3 object keys and content types to the screening runner.
+      // Include extractedData so the cross-document consistency check can
+      // compare fields across documents without calling the backend again.
       onReady({
         claimId,
-
         claim: toClaimSnapshot(form),
-
-        documents: files.map((file) => {
-          const uploaded = uploadedDocuments.get(file.id);
-
-          return {
-            name: file.file.name,
-            size: file.file.size,
-            type: uploaded?.contentType || file.file.type,
-            s3Key: uploaded?.key || file.s3Key,
-          };
-        }),
+        documents: files.map((file) => ({
+          name: file.file.name,
+          size: file.file.size,
+          type: file.contentType || file.file.type,
+          s3Key: file.s3Key,
+          extractedData: file.extractedData,
+        })),
       });
 
       reset();
     },
-    [files, form, reset]
+    [files, form, reset, ensureClaimId]
   );
 
   return {
     step,
     setStep,
+    entryMode,
+    setEntryMode,
     form,
     setField,
     touched,
@@ -307,7 +517,7 @@ export function useClaimDraft() {
     addFiles,
     removeFile,
 
-    isSubmitting,
+    prefilledFields,
     submitError,
     submit,
     reset,

@@ -34,9 +34,9 @@ describe("Forensics Data Helpers", () => {
     const overview = extractForensicsOverview(record);
     assert.equal(overview.imagesSubmitted, 1);
     assert.equal(overview.imagesAnalyzed, 0);
-    assert.equal(overview.metadataStatus, "Not available (Awaiting backend integration)");
-    assert.equal(overview.compressionStatus, "Not available (Awaiting backend integration)");
-    assert.equal(overview.qualityStatus, "Not available (Awaiting backend integration)");
+    assert.equal(overview.metadataStatus, "Not available");
+    assert.equal(overview.compressionStatus, "Not available");
+    assert.equal(overview.qualityStatus, "Not available");
     assert.equal(overview.duplicateStatus, "No visual duplicates found");
     assert.equal(overview.hasRawData, false);
   });

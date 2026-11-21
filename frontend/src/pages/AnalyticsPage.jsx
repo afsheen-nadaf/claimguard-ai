@@ -30,10 +30,10 @@ export default function AnalyticsPage({ records, navigate }) {
       <PageHeader
         eyebrow="ANALYTICS"
         title="Analytics"
-        description="Outcome breakdown for claims screened in this session."
+        description="Outcome breakdown for the claims you have screened in this session."
       />
       <Callout tone="info">
-        <strong>Aggregate analytics are not connected.</strong> The frontend has no API for stored claims, so nothing here reflects the backend database. The figures below only count claims screened in this browser tab and reset on refresh.
+        <strong>Session analytics.</strong> These figures cover claims screened in this session only and clear on refresh.
       </Callout>
 
       {records.length === 0 ? (
@@ -43,7 +43,7 @@ export default function AnalyticsPage({ records, navigate }) {
             title="No data to chart yet"
             action={<button type="button" className="btn btn-primary" onClick={() => navigate("/new")}>Submit a new claim</button>}
           >
-            Screen one or more claims and this page will summarise their outcomes.
+            Screen a claim and this page will summarise the outcomes.
           </EmptyState>
         </Card>
       ) : (
@@ -63,7 +63,7 @@ export default function AnalyticsPage({ records, navigate }) {
             </ul>
           </Card>
 
-          <Card title="Results by check" icon="layers" description="How each check came out, session only.">
+          <Card title="Results by check" icon="layers" description="How each check came out.">
             <div className="table-wrap">
               <table className="data-table">
                 <thead><tr><th>Check</th><th className="num">Passed</th><th className="num">Review</th><th className="num">Incomplete</th></tr></thead>

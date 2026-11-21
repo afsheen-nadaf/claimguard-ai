@@ -111,7 +111,7 @@ export function extractForensicsOverview(record) {
     if (analysisState === "running") return "Analyzing…";
     if (analysisState === "error" && !imagesList.length) return "Failed";
     if (rawForensics?.skipped || imagesSubmitted === 0) return "Not applicable";
-    if (!rawForensics) return "Not available (Awaiting backend integration)";
+    if (!rawForensics) return "Not available";
     if (!imagesList.length) return "Not available";
 
     const statuses = imagesList.map((img) => img.analyses?.[key]?.status);

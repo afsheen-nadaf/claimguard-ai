@@ -3,12 +3,13 @@ import json
 import os
 import re
 import tempfile
-import math
 from pathlib import Path
 
 import boto3
 from botocore.exceptions import ClientError
-from gradio_client import Client, handle_file
+
+# Smaug is now loaded locally (no external gradio_client / HuggingFace Space).
+from smaug_local import analyze_image as smaug_analyze
 
 from metadata_analyzer import extract_metadata
 from compression_analyzer import analyze_compression
@@ -25,7 +26,7 @@ s3 = boto3.client("s3")
 BUCKET = os.environ["CLAIM_PACKETS_BUCKET"]
 
 MAX_IMAGES = int(
-    os.environ.get("MAX_IMAGES_PER_CLAIM", "3")
+    os.environ.get("MAX_IMAGES_PER_CLAIM", "2")
 )
 
 MAX_IMAGE_BYTES = int(
@@ -45,128 +46,11 @@ KEY_PATTERN = re.compile(
     r"^incoming/[A-Za-z0-9._/-]+$"
 )
 
-
-# --------------------------------------------------
-# HUGGING FACE SMAUG CONFIGURATION
-# --------------------------------------------------
-
-SMAUG_SPACE_ID = os.environ.get(
-    "SMAUG_SPACE_ID",
-    "afsheenadaf/claimguard-smaug"
-)
-
-# Timeout for individual Smaug AI-generation prediction request (in seconds)
-SMAUG_TIMEOUT_SECONDS = float(
-    os.environ.get("SMAUG_TIMEOUT_SECONDS", "30.0")
-)
-
-# Minimum remaining Lambda execution time (in milliseconds) required to safely start Smaug
+# Minimum remaining Lambda execution time (ms) required to start Smaug.
+# If time is below this, Smaug is skipped to avoid a timeout.
 SMAUG_MIN_REMAINING_TIME_MS = int(
-    os.environ.get("SMAUG_MIN_REMAINING_TIME_MS", "25000")
+    os.environ.get("SMAUG_MIN_REMAINING_TIME_MS", "20000")
 )
-
-# Buffer reserved for response serialization, cleanup, and Lambda completion (in milliseconds)
-SMAUG_RESPONSE_BUFFER_MS = int(
-    os.environ.get("SMAUG_RESPONSE_BUFFER_MS", "5000")
-)
-
-# Reuse the client across warm Lambda invocations.
-smaug_client = None
-
-
-def get_smaug_client():
-    """
-    Initialize the Hugging Face Gradio client
-    only when Smaug analysis is required.
-    Configures underlying httpx client with timeout.
-    """
-
-    global smaug_client
-
-    if smaug_client is None:
-        try:
-            smaug_client = Client(
-                SMAUG_SPACE_ID,
-                httpx_kwargs={"timeout": SMAUG_TIMEOUT_SECONDS}
-            )
-        except TypeError:
-            smaug_client = Client(SMAUG_SPACE_ID)
-
-    return smaug_client
-
-
-def analyze_smaug_image(local_path, timeout=SMAUG_TIMEOUT_SECONDS):
-    """
-    Send an image to the Hugging Face Smaug Space.
-
-    Returns an AI-generation screening score.
-    This does not establish image manipulation or fraud.
-    """
-
-    client = get_smaug_client()
-
-    # Use client.submit().result(timeout=...) which is the native Gradio Client
-    # mechanism for configuring an execution timeout on prediction futures.
-    if hasattr(client, "submit"):
-        job = client.submit(
-            image_path=handle_file(str(local_path)),
-            api_name="/analyze"
-        )
-        try:
-            result = job.result(timeout=timeout)
-        except TimeoutError:
-            try:
-                job.cancel()
-            except Exception:
-                pass
-            raise TimeoutError(
-                f"Smaug AI-generation analysis timed out after {timeout} seconds."
-            )
-    else:
-        result = client.predict(
-            image_path=handle_file(str(local_path)),
-            api_name="/analyze"
-        )
-
-    if not isinstance(result, dict):
-        raise ValueError(
-            "Smaug returned an unexpected response."
-        )
-
-    score = result.get("aiGeneratedScore")
-
-    if (
-        not isinstance(score, (int, float))
-        or isinstance(score, bool)
-        or not math.isfinite(score)
-        or not 0 <= score <= 1
-    ):
-        raise ValueError(
-            "Smaug returned an invalid AI-generation score."
-        )
-
-    return {
-        "model": result.get(
-            "model",
-            "abacusai/Smaug-AI-Image-Detector"
-        ),
-        "aiGeneratedScore": round(
-            float(score), 6
-        ),
-        "aiGeneratedPercentage": round(
-            float(score) * 100, 2
-        ),
-        "interpretation": result.get(
-            "interpretation",
-            "AI-generation screening completed."
-        ),
-        "disclaimer": (
-            "This is an AI-generation screening score, "
-            "not proof of image authenticity, manipulation, "
-            "or fraud. Localized AI edits in otherwise "
-            "genuine photographs may not be detected."
-        )
-    }
 
 
 # --------------------------------------------------
@@ -179,12 +63,6 @@ def response(status_code, body):
         "statusCode": status_code,
         "headers": {
             "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": os.environ.get(
-                "CORS_ORIGIN",
-                "http://localhost:5173"
-            ),
-            "Access-Control-Allow-Headers": "Content-Type",
-            "Access-Control-Allow-Methods": "OPTIONS,POST",
         },
         "body": json.dumps(body, default=str),
     }
@@ -346,7 +224,7 @@ def analyze_s3_image(key, context=None):
             }
 
         # ------------------------------------------
-        # 4. SMAUG AI-GENERATION DETECTION
+        # 4. SMAUG AI-GENERATION DETECTION (LOCAL)
         # ------------------------------------------
 
         remaining_ms = None
@@ -367,29 +245,12 @@ def analyze_s3_image(key, context=None):
                 ),
             }
         else:
-            if remaining_ms is not None:
-                # Dynamic timeout: available remaining time minus completion buffer,
-                # capped at the configured maximum timeout.
-                dynamic_timeout = max(1.0, (remaining_ms - SMAUG_RESPONSE_BUFFER_MS) / 1000.0)
-                effective_timeout = min(SMAUG_TIMEOUT_SECONDS, dynamic_timeout)
-            else:
-                effective_timeout = SMAUG_TIMEOUT_SECONDS
-
             try:
-                smaug_result = analyze_smaug_image(
-                    local_path,
-                    timeout=effective_timeout
-                )
+                smaug_result = smaug_analyze(local_path)
 
                 results["aiGeneration"] = {
                     "status": "COMPLETED",
                     "result": smaug_result
-                }
-
-            except TimeoutError as exc:
-                results["aiGeneration"] = {
-                    "status": "ERROR",
-                    "error": str(exc)[:500]
                 }
 
             except Exception as exc:

@@ -3,12 +3,13 @@ import Icon from "../components/Icon";
 import Stepper from "../components/Stepper";
 import { Card, EmptyState, KeyValueList, PageHeader } from "../components/ui";
 import CheckCard from "../components/results/CheckCard";
+import ConsistencyResult from "../components/results/ConsistencyResult";
 import DuplicateResult from "../components/results/DuplicateResult";
+import EvidenceResult from "../components/results/EvidenceResult";
 import OutlierResult from "../components/results/OutlierResult";
 import PolicyResult from "../components/results/PolicyResult";
 import SummaryPanel from "../components/results/SummaryPanel";
 import ImageForensicsSection from "../components/results/forensics/ImageForensicsSection";
-import RelevanceResult from "../components/results/RelevanceResult";
 import { CHECKS } from "../lib/checks";
 import { summarize } from "../lib/screening";
 import { formatBytes, formatDate, formatDateTime, formatINR } from "../lib/format";
@@ -23,10 +24,10 @@ export default function ResultsPage({ record, onRetry, navigate }) {
         <Card>
           <EmptyState
             icon="history"
-            title="This result is no longer in memory"
+            title="We couldn't find these results"
             action={<button type="button" className="btn btn-primary" onClick={() => navigate("/new")}>Submit a new claim</button>}
           >
-            Screening results are only held in this browser tab and are cleared when the page is refreshed. Stored history is not connected yet.
+            The results may have been cleared when the page was refreshed. Submit the claim again to re-run screening.
           </EmptyState>
         </Card>
       </>
@@ -63,12 +64,13 @@ export default function ResultsPage({ record, onRetry, navigate }) {
           </button>
         }
       />
-      <Stepper current={4} />
+      <Stepper current={3} />
 
       <SummaryPanel summary={summary} checks={record.checks} />
 
       <div className="results-grid">
         <CheckCard
+          id="check-policy"
           title={CHECKS.policy.title}
           icon={CHECKS.policy.icon}
           check={record.checks.policy}
@@ -81,6 +83,7 @@ export default function ResultsPage({ record, onRetry, navigate }) {
         </CheckCard>
 
         <CheckCard
+          id="check-duplicate"
           title={CHECKS.duplicate.title}
           icon={CHECKS.duplicate.icon}
           check={record.checks.duplicate}
@@ -96,6 +99,7 @@ export default function ResultsPage({ record, onRetry, navigate }) {
         </CheckCard>
 
         <CheckCard
+          id="check-outlier"
           title={CHECKS.outlier.title}
           icon={CHECKS.outlier.icon}
           check={record.checks.outlier}
@@ -112,11 +116,31 @@ export default function ResultsPage({ record, onRetry, navigate }) {
         onRetry={() => onRetry(record, "forensics")}
       />
 
-      <RelevanceResult
-        record={record}
-        check={record.checks.relevance}
-        onRetry={() => onRetry(record, "relevance")}
-      />
+      <div className="results-grid">
+        <CheckCard
+          id="check-evidence"
+          title={CHECKS.evidence.title}
+          icon={CHECKS.evidence.icon}
+          check={record.checks.evidence}
+          onRetry={() => onRetry(record, "evidence")}
+          wide
+        >
+          <EvidenceResult result={record.checks.evidence.result || {}} />
+        </CheckCard>
+      </div>
+
+      <div className="results-grid">
+        <CheckCard
+          id="check-consistency"
+          title={CHECKS.consistency.title}
+          icon={CHECKS.consistency.icon}
+          check={record.checks.consistency}
+          onRetry={() => onRetry(record, "consistency")}
+          wide
+        >
+          <ConsistencyResult result={record.checks.consistency.result || {}} />
+        </CheckCard>
+      </div>
 
       <div className="results-meta">
         <Card title="Submitted claim" icon="file">
@@ -142,7 +166,7 @@ export default function ResultsPage({ record, onRetry, navigate }) {
               </li>
             ))}
           </ul>
-          <p className="muted small">Stored in private storage. No check reads their contents.</p>
+          <p className="muted small">Stored in private S3 storage. Evidence relevance and image forensics read image/PDF contents for screening.</p>
         </Card>
       </div>
     </>

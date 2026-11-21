@@ -1,28 +1,26 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
-
 /* ---------- Design tokens ---------- */
 :root {
-  --navy-950: #0a1428;
-  --navy-900: #0f1d3a;
-  --navy-800: #172a4f;
-  --navy-700: #213a6b;
+  --navy-950: #151a16;
+  --navy-900: #222a25;
+  --navy-800: #303b34;
+  --navy-700: #405046;
 
-  --indigo-700: #3342b8;
-  --indigo-600: #4254d6;
-  --indigo-500: #5668e6;
-  --indigo-100: #e3e7fd;
-  --indigo-50: #f0f2ff;
+  --indigo-700: #146444;
+  --indigo-600: #177b53;
+  --indigo-500: #27966a;
+  --indigo-100: #cbe8d9;
+  --indigo-50: #edf7f0;
 
-  --slate-25: #fafbfd;
-  --slate-50: #f4f6fa;
-  --slate-100: #eaeef4;
-  --slate-200: #dfe4ec;
-  --slate-300: #c6cedb;
-  --slate-400: #94a0b4;
-  --slate-500: #67738a;
-  --slate-600: #4b576d;
-  --slate-700: #354055;
-  --slate-900: #131c2f;
+  --slate-25: #fffefa;
+  --slate-50: #f6f5f0;
+  --slate-100: #eeede6;
+  --slate-200: #e2e0d7;
+  --slate-300: #cbc9be;
+  --slate-400: #96958a;
+  --slate-500: #6b6d64;
+  --slate-600: #50564f;
+  --slate-700: #3c443d;
+  --slate-900: #222a24;
 
   --green-50: #eaf7f0;
   --green-200: #b6e2cb;
@@ -37,15 +35,36 @@
   --red-600: #d1443b;
   --red-700: #a3302a;
 
-  --bg: var(--slate-50);
-  --surface: #ffffff;
+  /* Shades referenced by components but previously undefined */
+  --green-100: #d3eee0;
+  --amber-100: #fdeac2;
+  --amber-300: #eeb957;
+  --amber-800: #744a03;
+  --amber-900: #5a3a05;
+  --slate-800: #303a33;
+  --rose-50: var(--red-50);
+  --rose-200: var(--red-200);
+  --rose-700: var(--red-700);
+  --rose-800: #7f2420;
+  --violet-50: #f5f0fa;
+  --violet-600: #7755a6;
+  --violet-700: #604081;
+  --good-500: #1c9a5a;
+  --good-600: #14804a;
+  --warn-500: #e09a14;
+  --warn-600: #c27d05;
+  --bad-500: #e0564d;
+  --bad-600: #c93d34;
+
+  --bg: #f4f3ed;
+  --surface: #fffefa;
   --border: var(--slate-200);
   --text: var(--slate-900);
   --muted: var(--slate-500);
 
-  --radius-sm: 8px;
-  --radius: 12px;
-  --radius-lg: 16px;
+  --radius-sm: 9px;
+  --radius: 13px;
+  --radius-lg: 18px;
 
   --s1: 4px;
   --s2: 8px;
@@ -55,11 +74,11 @@
   --s6: 24px;
   --s8: 32px;
 
-  --shadow-sm: 0 1px 2px rgba(15, 29, 58, 0.05);
-  --shadow: 0 1px 2px rgba(15, 29, 58, 0.04), 0 6px 18px rgba(15, 29, 58, 0.05);
-  --focus: 0 0 0 3px rgba(86, 104, 230, 0.35);
+  --shadow-sm: 0 1px 2px rgba(34, 42, 36, 0.04);
+  --shadow: 0 1px 2px rgba(34, 42, 36, 0.035), 0 12px 30px rgba(34, 42, 36, 0.055);
+  --focus: 0 0 0 3px rgba(39, 150, 106, 0.24);
 
-  --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   font-family: var(--font);

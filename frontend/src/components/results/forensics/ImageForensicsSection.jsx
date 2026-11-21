@@ -90,6 +90,7 @@ export default function ImageForensicsSection({ record, check, onRetry }) {
 
   return (
     <section
+      id="check-forensics"
       className="image-forensics-section mt"
       aria-labelledby="forensics-title"
     >

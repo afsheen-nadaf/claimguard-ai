@@ -43,6 +43,13 @@ export function Callout({ tone = "info", icon, children, onDismiss, role }) {
   );
 }
 
+// Implementation notes for developers. Rendered only by the dev server,
+// never in a production build.
+export function DevNote({ children }) {
+  if (!import.meta.env.DEV) return null;
+  return <Callout tone="info"><strong>Dev note.</strong> {children}</Callout>;
+}
+
 export function PageHeader({ eyebrow, title, description, actions }) {
   return (
     <header className="page-header">

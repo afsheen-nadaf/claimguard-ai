@@ -2,7 +2,7 @@ import { CLAIM_TYPES } from "../../api/config";
 import { FIELD_ORDER, validateField } from "../../lib/validation";
 import { formatINR, todayISO } from "../../lib/format";
 import Icon from "../Icon";
-import { Card } from "../ui";
+import { Callout, Card } from "../ui";
 
 function Field({ id, label, required = true, error, hint, children, className = "" }) {
   return (
@@ -17,7 +17,7 @@ function Field({ id, label, required = true, error, hint, children, className = 
   );
 }
 
-export default function ClaimDetailsStep({ draft, onContinue }) {
+export default function ClaimDetailsStep({ draft, onContinue, hideFooter = false, entryMode = "manual" }) {
   const { form, setField, touched, touch, attempted, setAttempted } = draft;
   const visibleError = (name) => (touched[name] || attempted ? validateField(name, form) : null);
   const describe = (name, hasHint) => (visibleError(name) ? `${name}-error` : hasHint ? `${name}-hint` : undefined);
@@ -44,8 +44,17 @@ export default function ClaimDetailsStep({ draft, onContinue }) {
     <Card
       title="Claim information"
       icon="file"
-      description="These details are what the screening checks run on. Double-check the policy number and amount."
+      description={entryMode === "upload"
+        ? "Review the details extracted from your documents and fill any gaps."
+        : "Enter the claim details manually. You can review and edit everything before screening."}
     >
+      <Callout tone="info">
+        <p className="small">
+          {entryMode === "upload"
+            ? "Extracted values fill empty fields only. Check each detail; you can edit any value before screening."
+            : "Supporting documents are added after these details. If uploaded later, extraction fills empty fields only."}
+        </p>
+      </Callout>
       <form
         className="form-grid"
         noValidate
@@ -125,12 +134,14 @@ export default function ClaimDetailsStep({ draft, onContinue }) {
           <span className="char-count" aria-live="off">{form.description.length}/1000</span>
         </Field>
 
-        <div className="form-footer span-2">
-          <span className="required-note"><span className="req">*</span> Required</span>
-          <button type="submit" className="btn btn-primary">
-            Continue to documents <Icon name="arrow" size={17} />
-          </button>
-        </div>
+        {!hideFooter && (
+          <div className="form-footer span-2">
+            <span className="required-note"><span className="req">*</span> Required</span>
+            <button type="submit" className="btn btn-primary">
+              Continue to documents <Icon name="arrow" size={17} />
+            </button>
+          </div>
+        )}
       </form>
     </Card>
   );
