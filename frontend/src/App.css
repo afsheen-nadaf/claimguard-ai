@@ -768,3 +768,76 @@ button.step-button:hover .step-dot { border-color: var(--indigo-500); }
 .evidence-reasons { margin: 4px 0 0; padding-left: 16px; font-size: 12.5px; color: var(--slate-700); display: grid; gap: 2px; }
 .evidence-meta { font-size: 11.5px; }
 
+/* ---------- Risk Score Meter ---------- */
+.risk-meter {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+}
+.risk-meter-svg {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  transform: scaleY(-1);
+}
+.risk-meter-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  z-index: 1;
+}
+.risk-score {
+  font-size: 36px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -1px;
+}
+.risk-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.risk-panel {
+  background: linear-gradient(145deg, var(--surface), var(--slate-100));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--s6);
+  text-align: center;
+}
+.risk-panel h3 {
+  font-size: 14px;
+  font-weight: 650;
+  margin-bottom: var(--s3);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.risk-interpretation {
+  margin-top: var(--s4);
+  padding-top: var(--s4);
+  border-top: 1px solid var(--border);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text);
+}
+.results-top {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: 22px;
+  margin-bottom: var(--s5);
+  align-items: start;
+}
+.results-top-summary {
+  min-width: 0;
+}
+

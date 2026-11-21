@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Icon from "../components/Icon";
 import Stepper from "../components/Stepper";
+import RiskScoreMeter from "../components/RiskScoreMeter";
 import { Card, EmptyState, KeyValueList, PageHeader } from "../components/ui";
 import CheckCard from "../components/results/CheckCard";
 import ConsistencyResult from "../components/results/ConsistencyResult";
@@ -11,7 +12,7 @@ import PolicyResult from "../components/results/PolicyResult";
 import SummaryPanel from "../components/results/SummaryPanel";
 import ImageForensicsSection from "../components/results/forensics/ImageForensicsSection";
 import { CHECKS } from "../lib/checks";
-import { summarize } from "../lib/screening";
+import { calculateRiskScore, summarize } from "../lib/screening";
 import { formatBytes, formatDate, formatDateTime, formatINR } from "../lib/format";
 
 export default function ResultsPage({ record, onRetry, navigate }) {
@@ -35,6 +36,7 @@ export default function ResultsPage({ record, onRetry, navigate }) {
   }
 
   const summary = summarize(record.checks);
+  const riskScore = calculateRiskScore(record.checks);
   const { claim } = record;
 
   async function copyId() {
@@ -66,7 +68,20 @@ export default function ResultsPage({ record, onRetry, navigate }) {
       />
       <Stepper current={3} />
 
-      <SummaryPanel summary={summary} checks={record.checks} />
+      <div className="results-top">
+        <div className="risk-panel">
+          <h3>Fraud Risk Score</h3>
+          <RiskScoreMeter score={riskScore} />
+          <p className="risk-interpretation">
+            {riskScore <= 30 && "This claim shows no significant fraud indicators based on automated screening."}
+            {riskScore > 30 && riskScore <= 60 && "This claim has moderate risk indicators. Manual review is recommended before proceeding."}
+            {riskScore > 60 && "This claim has multiple fraud indicators. Priority review by an analyst is strongly recommended."}
+          </p>
+        </div>
+        <div className="results-top-summary">
+          <SummaryPanel summary={summary} checks={record.checks} />
+        </div>
+      </div>
 
       <div className="results-grid">
         <CheckCard

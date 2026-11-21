@@ -868,3 +868,29 @@ export function filterHistoryRecords(records, { query = "", outcome = "all", sor
       return sortOrder === "oldest" ? difference : -difference;
     });
 }
+
+// ---------- risk score calculation ----------
+
+export function calculateRiskScore(checks) {
+  let score = 0;
+
+  // Policy validation: +40 if failed
+  if (checks.policy?.result?.state === "review") score += 40;
+
+  // Duplicate detection: +30 if duplicate found
+  if (checks.duplicate?.result?.state === "review") score += 30;
+
+  // Outlier detection: +25 if outlier
+  if (checks.outlier?.result?.state === "review") score += 25;
+
+  // Image forensics: +35 if flagged (AI-generated, manipulated)
+  if (checks.forensics?.result?.state === "review") score += 35;
+
+  // Evidence relevance: +30 if mismatch
+  if (checks.evidence?.result?.state === "review") score += 30;
+
+  // Cross-document consistency: +20 if inconsistent
+  if (checks.consistency?.result?.state === "review") score += 20;
+
+  return Math.min(score, 100);
+}
