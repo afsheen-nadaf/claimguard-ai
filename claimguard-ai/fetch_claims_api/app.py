@@ -21,6 +21,7 @@ MAX_LIMIT = 100
 CLAIM_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 CLAIM_FIELDS = {
     "claimId",
+    "claimantName",
     "policyNumber",
     "claimType",
     "incidentDate",
@@ -29,6 +30,7 @@ CLAIM_FIELDS = {
     "duplicateStatus",
     "matchType",
     "screeningResults",
+    "screeningStatus",
     "screeningUpdatedAt",
     "documents",
     "duplicateMatches",
@@ -64,12 +66,20 @@ def _cursor_encode(key):
     raw = json.dumps(key, separators=(",", ":"), default=str).encode("utf-8")
     return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
 
+def _plain(value):
+    if isinstance(value, Decimal):
+        return int(value) if value == value.to_integral_value() else float(value)
+    if isinstance(value, dict):
+        return {k: _plain(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_plain(v) for v in value]
+    return value
 
 def _serialize(items, adjuster):
     claims = []
     for item in items:
         claim = {
-            key: float(value) if isinstance(value, Decimal) else value
+            key: _plain(value)
             for key, value in item.items()
             if key in CLAIM_FIELDS
         }

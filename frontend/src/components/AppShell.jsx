@@ -6,12 +6,12 @@ const ADJUSTER_NAV = [
   { id: "overview", href: "#/", label: "OVERVIEW", icon: "grid" },
   { id: "history", href: "#/history", label: "CLAIM HISTORY", icon: "history" },
   { id: "analytics", href: "#/analytics", label: "ANALYTICS", icon: "chart" },
-  { id: "how", href: "#/how-it-works", label: "HOW IT WORKS", icon: "help" },
 ];
 
 const CLAIMANT_NAV = [
   { id: "new", href: "#/new", label: "SUBMIT CLAIM", icon: "filePlus" },
   { id: "history", href: "#/history", label: "MY CLAIMS", icon: "history" },
+  { id: "how", href: "#/how-it-works", label: "HOW IT WORKS", icon: "help" },
 ];
 
 export default function AppShell({

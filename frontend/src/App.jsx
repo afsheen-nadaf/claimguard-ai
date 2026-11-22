@@ -51,8 +51,9 @@ function AuthenticatedApp({ auth }) {
   const lookupInProgress = useRef(new Set());
 
   const isClaimantRouteBlocked =
-    role === "claimant" && !["new", "history", "results"].includes(route.name);
-  const isAdjusterRouteBlocked = role === "adjuster" && route.name === "new";
+    role === "claimant" && !["new", "history", "how"].includes(route.name);
+  const isAdjusterRouteBlocked =
+    role === "adjuster" && ["new", "how"].includes(route.name);
 
   useEffect(() => {
     if (isClaimantRouteBlocked) navigate("/new");

@@ -14,9 +14,9 @@ export default function NewClaimPage({ draft, onScreeningReady, navigate }) {
 
   function submit() {
     draft.submit((payload) => {
-      toast.success("Claim submitted! Running screening checks...");
+      toast.success("Claim submitted! Your claim is now being processed.");
       onScreeningReady(payload);
-      navigate(`/results/${encodeURIComponent(payload.claimId)}`);
+      navigate("/history");
     });
   }
 
@@ -44,7 +44,7 @@ export default function NewClaimPage({ draft, onScreeningReady, navigate }) {
         }
         description={
           step === 3
-            ? "Confirm the claim details and evidence before running the screening checks."
+            ? "Confirm the claim details and evidence before submitting your claim."
             : step === 2
               ? "Upload up to two photos, or continue without photos if none apply."
               : entryMode === "upload"
@@ -75,7 +75,7 @@ export default function NewClaimPage({ draft, onScreeningReady, navigate }) {
               How would you like to start?
             </h2>
             <p className="text-purple-200">
-              Upload a document for extraction, or enter the details yourself. You can review and edit everything before screening.
+              Upload a document for extraction, or enter the details yourself. You can review and edit everything before submitting.
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -145,9 +145,9 @@ export default function NewClaimPage({ draft, onScreeningReady, navigate }) {
 
                   <div className="space-y-4">
                     <Callout tone="info">
-                      <strong className="font-semibold text-purple-100">Ready to screen?</strong>
+                      <strong className="font-semibold text-purple-100">Ready to continue?</strong>
                       <p className="text-sm text-purple-200 mt-1">
-                        Add claim details and any supporting PDFs. You can add photos next; at least one supporting PDF or photo is required before screening.
+                        Add claim details and any supporting PDFs. You can add photos next; at least one supporting PDF or photo is required before submitting.
                       </p>
                     </Callout>
 

@@ -457,10 +457,10 @@ export default function ImageForensicsSection({ record, check, onRetry }) {
 
           {/* Neutral disclaimer when review is not required */}
           {!review.required && (
-            <div className="review-neutral-notice mt">
-              <Icon name="info" size={15} />
+            <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-purple-700/40 bg-purple-950/60 px-4 py-3 text-xs leading-relaxed text-purple-100">
+              <Icon name="info" size={16} className="mt-0.5 flex-shrink-0 text-purple-300" />
               <span>
-                <strong>Important:</strong> &ldquo;No review flags detected&rdquo; does not establish that the image is authentic, unaltered, or fraud-free. Always corroborate photo evidence with policy details and incident records.
+                <strong className="font-semibold text-white">Important:</strong> &ldquo;No review flags detected&rdquo; does not establish that the image is authentic, unaltered, or fraud-free. Always corroborate photo evidence with policy details and incident records.
               </span>
             </div>
           )}

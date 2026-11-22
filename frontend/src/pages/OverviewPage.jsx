@@ -1,6 +1,6 @@
 import Icon from "../components/Icon";
 import { Card, EmptyState, StatusBadge } from "../components/ui";
-import { formatINR } from "../lib/format";
+import { formatDateTime, formatINR } from "../lib/format";
 import { CHECKS } from "../lib/checks";
 import {
   CHECK_ORDER,
@@ -90,11 +90,11 @@ export default function OverviewPage({ records, navigate }) {
             is explainable for human review.
           </p>
           <div className="hero-actions">
-            <button type="button" className="btn btn-primary btn-lg" onClick={() => navigate("/new")}>
-              <Icon name="filePlus" size={18} /> Screen a Claim
+            <button type="button" className="btn btn-primary btn-lg" onClick={() => navigate("/history")}>
+              <Icon name="history" size={18} /> Review Claim History
             </button>
-            <button type="button" className="btn btn-secondary btn-lg" onClick={() => navigate("/how-it-works")}>
-              <Icon name="help" size={18} /> How it Works
+            <button type="button" className="btn btn-secondary btn-lg" onClick={() => navigate("/analytics")}>
+              <Icon name="chart" size={18} /> View Analytics
             </button>
           </div>
         </div>
@@ -127,7 +127,7 @@ export default function OverviewPage({ records, navigate }) {
         <Card
           title="Attention queue"
           icon="alert"
-          description="Claims that need a person's attention or have unavailable screening details."
+          description="Claims that need an adjuster's review or have incomplete screening details."
           actions={attentionRecords.length > 0 && (
             <button type="button" className="link-button" onClick={() => navigate("/history")}>
               View history
@@ -140,21 +140,25 @@ export default function OverviewPage({ records, navigate }) {
                 <Icon name="checkCircle" size={18} className="text-emerald-400" />
                 No claims currently need follow-up.
               </span>
-              <button type="button" className="link-button" onClick={() => navigate("/new")}>
-                Screen a claim
+              <button type="button" className="link-button" onClick={() => navigate("/history")}>
+                Open claim history
               </button>
             </div>
           ) : (
             <ul className="space-y-3">
               {attentionRecords.map((item) => {
                 const { record, summary, missingEvidence, attentionChecks } = item;
+                const displayTitle =
+                  record.claim?.claimantName ||
+                  record.claim?.policyNumber ||
+                  `Claim #${record.id}`;
                 const reasons = [
                   summary.key === "unavailable"
-                    ? "Detailed screening results were not included in this history record."
+                    ? "Detailed screening results were not recorded for this legacy entry."
                     : attentionChecks.length > 0
-                      ? attentionChecks.map((key) => CHECKS[key].title).join(", ")
+                      ? `Flagged: ${attentionChecks.map((key) => CHECKS[key].title).join(", ")}`
                       : null,
-                  missingEvidence ? "No supporting files are attached." : null,
+                  missingEvidence ? "No supporting files attached" : null,
                 ].filter(Boolean);
 
                 return (
@@ -170,17 +174,30 @@ export default function OverviewPage({ records, navigate }) {
                       />
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <strong className="text-sm text-white">
-                            {record.claim?.policyNumber || `Claim #${record.id}`}
-                          </strong>
+                          <strong className="text-sm text-white">{displayTitle}</strong>
+                          <code className="px-2 py-0.5 bg-purple-950/80 border border-purple-800/60 rounded text-[11px] text-purple-200">
+                            {record.id}
+                          </code>
                           <StatusBadge
                             state={summary.key === "unavailable" ? "idle" : missingEvidence && summary.key === "clear" ? "review" : ({ review: "review", partial: "inconclusive", failed: "error" }[summary.key] || "idle")}
                             label={summary.key === "unavailable" ? "Results unavailable" : missingEvidence && summary.key === "clear" ? "Evidence missing" : summary.title}
                           />
                         </div>
-                        <p className="text-xs text-purple-300 mt-1">
-                          {record.claim?.claimType || "Unknown type"} · {reasons.join(" · ")}
+                        <p className="text-xs text-purple-200 mt-1">
+                          Policy: <strong>{record.claim?.policyNumber || "—"}</strong>
+                          {" · "}
+                          {record.claim?.claimType || "General"}
+                          {record.claim?.claimAmountINR != null && (
+                            <> · {formatINR(record.claim.claimAmountINR)}</>
+                          )}
+                          {" · "}
+                          Submitted {formatDateTime(record.submittedAt)}
                         </p>
+                        {reasons.length > 0 && (
+                          <p className="text-xs text-purple-400 mt-0.5">
+                            {reasons.join(" · ")}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <button
@@ -214,21 +231,29 @@ export default function OverviewPage({ records, navigate }) {
           {recent.length === 0 ? (
             <EmptyState
               icon="history"
-              title="No claims screened yet"
-              action={<button type="button" className="btn btn-secondary" onClick={() => navigate("/new")}>Screen a claim</button>}
+              title="No claims in queue yet"
+              action={<button type="button" className="btn btn-secondary" onClick={() => navigate("/history")}>Open claim history</button>}
             >
-              Claims you screen will show up here with their outcome.
+              Submitted claims will show up here with their screening outcome.
             </EmptyState>
           ) : (
             <ul className="recent-list-compact">
               {recent.map((r) => {
                 const s = summarizeRecord(r);
+                const primaryLabel = r.claim?.claimantName || r.claim?.policyNumber || r.id;
                 return (
                   <li key={r.id}>
                     <button type="button" className="recent-row-compact" onClick={() => navigate(`/results/${encodeURIComponent(r.id)}`)}>
-                      <span style={{ flex: 1, minWidth: 0, fontSize: "13px" }}>
-                        <strong>{r.claim.policyNumber}</strong>
-                        <span className="muted small" style={{ display: "block", fontSize: "11px" }}>{r.claim.claimType} · {formatINR(r.claim.claimAmountINR)}</span>
+                      <span className="min-w-0 flex-1 text-left">
+                        <span className="flex items-center gap-2 flex-wrap">
+                          <strong className="text-[13px] text-white">{primaryLabel}</strong>
+                          <code className="px-1.5 py-0.5 bg-purple-950/80 border border-purple-800/50 rounded text-[10px] text-purple-300">
+                            {r.id}
+                          </code>
+                        </span>
+                        <span className="block text-[11px] text-purple-300 mt-0.5">
+                          Policy: {r.claim?.policyNumber || "—"} · {r.claim?.claimType || "General"} · {formatINR(r.claim?.claimAmountINR)} · {formatDateTime(r.submittedAt)}
+                        </span>
                       </span>
                       <OutcomeBadge summary={s} />
                     </button>

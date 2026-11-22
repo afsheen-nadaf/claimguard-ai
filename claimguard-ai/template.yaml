@@ -1,36 +1,22 @@
-
-
 AWSTemplateFormatVersion: '2010-09-09'
-
 Transform: AWS::Serverless-2016-10-31
 
-
-
 Description: >
-
   claimguard-ai
-
   AWS SAM infrastructure for ClaimGuard AI.
-
-
-
-Globals:
-
-  Function:
-
-    Timeout: 3
-
-    Tracing: Active
-
-    LoggingConfig:
-
-      LogFormat: JSON
 
 Metadata:
   cfn-lint:
     config:
       ignore_checks:
         - W3660
+
+Globals:
+  Function:
+    Timeout: 3
+    Tracing: Active
+    LoggingConfig:
+      LogFormat: JSON
 
   Api:
     TracingEnabled: true
@@ -55,6 +41,95 @@ Parameters:
     Description: Globally unique Cognito Hosted UI domain prefix.
 
 Resources:
+
+  SubmitClaimFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: submit_claim_api/
+      Handler: app.lambda_handler
+      Runtime: python3.14
+      Timeout: 10
+      Environment:
+        Variables:
+          STATE_MACHINE_ARN: !Ref ClaimPipeline
+          CORS_ORIGIN: !Ref FrontendOrigin
+      Layers:
+        - !Ref CognitoAuthLayer
+      Policies:
+        - StepFunctionsExecutionPolicy:
+            StateMachineName: !GetAtt ClaimPipeline.Name
+      Events:
+        SubmitClaim:
+          Type: Api
+          Properties:
+            Path: /claims/submit
+            Method: POST
+
+  ClaimStatusFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: claim_status_api/
+      Handler: app.lambda_handler
+      Runtime: python3.14
+      Timeout: 10
+      Environment:
+        Variables:
+          STATE_MACHINE_ARN: !Ref ClaimPipeline
+          CORS_ORIGIN: !Ref FrontendOrigin
+      Layers:
+        - !Ref CognitoAuthLayer
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: states:DescribeExecution
+              Resource: !Sub "arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:execution:${ClaimPipeline.Name}:*"
+      Events:
+        GetStatus:
+          Type: Api
+          Properties:
+            Path: /claims/status
+            Method: GET
+
+  AggregateResultsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: aggregate_results_api/
+      Handler: app.lambda_handler
+      Runtime: python3.14
+      Timeout: 15
+      Environment:
+        Variables:
+          OPERATIONAL_CLAIMS_TABLE: !Ref OperationalClaimsTable
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: dynamodb:UpdateItem
+              Resource: !GetAtt OperationalClaimsTable.Arn
+
+  ClaimPipeline:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      DefinitionUri: statemachine/claim_pipeline.asl.json
+      DefinitionSubstitutions:
+        DuplicateCheckFunctionArn: !GetAtt DuplicateCheckFunction.Arn
+        PolicyValidationFunctionArn: !GetAtt PolicyValidationFunction.Arn
+        OutlierCheckFunctionArn: !GetAtt OutlierCheckFunction.Arn
+        ImageForensicsFunctionArn: !GetAtt ImageForensicsFunction.Arn
+        EvidenceRelevanceFunctionArn: !GetAtt EvidenceRelevanceFunction.Arn
+        AggregateResultsFunctionArn: !GetAtt AggregateResultsFunction.Arn
+      Policies:
+        - LambdaInvokePolicy:
+            FunctionName: !Ref DuplicateCheckFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref PolicyValidationFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref OutlierCheckFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref ImageForensicsFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref EvidenceRelevanceFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref AggregateResultsFunction
 
   CognitoUserPool:
     Type: AWS::Cognito::UserPool

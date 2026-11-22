@@ -1,4 +1,3 @@
-
 // Turns raw API responses into display models and derives the overall summary.
 //
 // The validate and check-outlier response contracts were not available when this
@@ -814,7 +813,7 @@ export function summarize(checks = {}) {
   }
 
   const pending = entries.filter(
-    (c) => c.status === "idle" || c.status === "running"
+    (c) => c.status === "idle" || c.status === "running" || c.status === "pending"
   ).length;
 
   const skipped = entries.filter(
@@ -954,6 +953,7 @@ export function filterHistoryRecords(records, { query = "", outcome = "all", sor
     .filter((record) => {
       const matchesQuery = !normalizedQuery || [
         record.id,
+        record.claim?.claimantName,
         record.claim?.policyNumber,
         record.claim?.claimType,
       ].some((value) => String(value || "").toLowerCase().includes(normalizedQuery));

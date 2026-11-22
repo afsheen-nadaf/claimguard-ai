@@ -1,4 +1,3 @@
-
 import { ENDPOINTS, UPLOAD_RULES } from "./config.js";
 import { ApiError, getJson, postJson, putToPresignedUrl } from "./client.js";
 
@@ -12,6 +11,51 @@ export function fetchClaimHistory(limit = 50, cursor = null, claimId = null) {
 export function persistScreeningResult(claimId, checkKey, checkResult) {
   return postJson(ENDPOINTS.saveResults, { claimId, checkKey, checkResult });
 }
+
+// ---------------------------------------------------------------------------
+// Backend pipeline (Step Functions). Used when VITE_USE_PIPELINE=true.
+// ---------------------------------------------------------------------------
+
+export function submitClaim(claimId, claim, documents = []) {
+  return postJson(ENDPOINTS.submit, {
+    claimId,
+    claimantName: claim.claimantName || "",
+    policyNumber: claim.policyNumber,
+    claimType: claim.claimType,
+    incidentDate: claim.incidentDate,
+    claimAmountINR: claim.claimAmountINR,
+    description: claim.description || claim.incidentDescription || "",
+    documents: documents
+      .filter((doc) => doc.s3Key)
+      .map((doc) => ({
+        key: doc.s3Key,
+        contentType: doc.type || doc.contentType || "",
+        name: doc.name || "",
+      })),
+  });
+}
+
+export function fetchClaimStatus(claimId) {
+  return getJson(`${ENDPOINTS.status}?${new URLSearchParams({ claimId })}`);
+}
+
+// Polls until the pipeline leaves RUNNING. Returns the final status object.
+export async function waitForPipeline(
+  claimId,
+  { intervalMs = 3000, timeoutMs = 600000 } = {}
+) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const status = await fetchClaimStatus(claimId);
+    if (status.status !== "RUNNING") return status;
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  throw new Error("Timed out waiting for screening to finish.");
+}
+
+// ---------------------------------------------------------------------------
+// Uploads and the original per-check endpoints (browser-driven flow)
+// ---------------------------------------------------------------------------
 
 export function resolveContentType(file) {
   const extension = (file.name.split(".").pop() || "").toLowerCase();
@@ -72,6 +116,7 @@ export async function uploadDocument(file, onProgress, claimId) {
 
 export function validatePolicy(claim) {
   return postJson(ENDPOINTS.validate, {
+    claimantName: claim.claimantName || "",
     policyNumber: claim.policyNumber,
     claimType: claim.claimType,
     incidentDate: claim.incidentDate,
@@ -90,6 +135,7 @@ export function checkDuplicate(claimId, claim, documents = []) {
 
   return postJson(ENDPOINTS.duplicate, {
     claimId,
+    claimantName: claim.claimantName || "",
     policyNumber: claim.policyNumber,
     claimType: claim.claimType,
     incidentDate: claim.incidentDate,

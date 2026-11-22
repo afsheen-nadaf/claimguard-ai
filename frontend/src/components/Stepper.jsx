@@ -13,11 +13,11 @@ export default function Stepper({ current, onStepClick }) {
         const inner = (
           <>
             <span
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all ${
+              className={`relative z-10 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all ${
                 state === "current"
                   ? "bg-purple-600 border-purple-600 text-white shadow-[0_0_0_4px_rgba(168,85,247,0.2)]"
                   : state === "complete"
-                  ? "bg-purple-900/30 border-purple-600 text-purple-400"
+                  ? "bg-[#1f1630] border-purple-600 text-purple-300"
                   : "bg-[#1a1425] border-purple-800/30 text-purple-500"
               }`}
             >
@@ -36,9 +36,12 @@ export default function Stepper({ current, onStepClick }) {
         return (
           <li
             key={label}
-            className="relative flex justify-center before:content-[''] before:absolute before:top-4 before:right-1/2 before:w-full before:h-0.5 first:before:hidden"
+            className="relative flex justify-center before:content-[''] before:absolute before:top-5 before:right-1/2 before:w-full before:h-0.5 before:z-0 first:before:hidden"
             style={{
-              "--tw-before-bg": state === "complete" || (state === "current" && i > 0) ? "rgb(168 85 247)" : "rgb(94 60 132)",
+              "--tw-before-bg":
+                state === "complete" || (state === "current" && i > 0)
+                  ? "rgb(168 85 247)"
+                  : "rgb(94 60 132)",
             }}
             aria-current={state === "current" ? "step" : undefined}
           >

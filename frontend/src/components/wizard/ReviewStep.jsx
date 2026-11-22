@@ -6,6 +6,7 @@ import { FIELD_ORDER } from "../../lib/validation";
 import { UPLOAD_RULES } from "../../api/config";
 
 const FIELD_LABELS = {
+  claimantName: "Claimant name",
   claimType: "Claim type",
   policyNumber: "Policy number",
   incidentDate: "Incident date",
@@ -35,6 +36,7 @@ export function ClaimSummary({ form }) {
   return (
     <KeyValueList
       items={[
+        { label: "Claimant name", value: (form.claimantName || "").trim() },
         { label: "Claim type", value: form.claimType },
         { label: "Policy number", value: form.policyNumber.trim() },
         { label: "Incident date", value: form.incidentDate ? formatDate(form.incidentDate) : "" },
@@ -132,7 +134,8 @@ export default function ReviewStep({ draft, onBack, onEdit, onSubmit }) {
   const { form, errors, files, submitError, prefilledFields } = draft;
   const documents = files.filter((file) => file.category !== "image");
   const images = files.filter((file) => file.category === "image");
-  const missing = FIELD_ORDER.filter((name) => errors[name]);
+  const reviewFields = ["claimantName", ...FIELD_ORDER];
+  const missing = reviewFields.filter((name) => errors[name]);
   const noFiles = files.length === 0;
   const stillUploading = files.some(
     (f) => f.status === "uploading" || f.extractionStatus === "extracting"

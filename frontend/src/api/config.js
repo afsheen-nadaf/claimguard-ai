@@ -14,6 +14,8 @@ export const ENDPOINTS = {
   validateEvidence: `${API_BASE}/claims/validate-evidence`,
   fetchHistory: `${API_BASE}/claims/history`,
   saveResults: `${API_BASE}/claims/screening-results`,
+  submit: `${API_BASE}/claims/submit`,
+  status: `${API_BASE}/claims/status`,
 };
 
 export const UPLOAD_RULES = {

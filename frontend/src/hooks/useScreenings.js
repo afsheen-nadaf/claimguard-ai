@@ -1,11 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { fetchClaimHistory, persistScreeningResult } from "../api/claims";
+import {
+  fetchClaimHistory,
+  persistScreeningResult,
+  submitClaim,
+  waitForPipeline,
+} from "../api/claims";
 import { CHECKS } from "../lib/checks";
 import { CHECK_ORDER } from "../lib/screening";
 
 const STORAGE_KEY = "claimguard_screenings";
 const PAGE_SIZE = 50;
+// Default to backend Step Functions pipeline unless explicitly disabled.
+const USE_PIPELINE = import.meta.env.VITE_USE_PIPELINE !== "false";
+// Everything except the browser-only consistency check runs in the pipeline.
+const PIPELINE_KEYS = CHECK_ORDER.filter((key) => key !== "consistency");
 
 function storageKey(userId) {
   return `${STORAGE_KEY}:${userId}`;
@@ -34,12 +43,41 @@ function saveToStorage(userId, records) {
 
 function mapCloudClaim(claim, role) {
   const savedResults = claim.screeningResults || {};
+  const pipelineComplete = claim.screeningStatus === "COMPLETE";
+  const isActivelyRunning = claim.screeningStatus === "RUNNING";
   const checks = Object.fromEntries(
     CHECK_ORDER.map((key) => {
       const saved = savedResults[key];
       let check = saved?.check
         ? { ...saved.check, persistenceSource: saved.source }
-        : { status: "unavailable", raw: null, result: null, error: null };
+        : key === "consistency" && pipelineComplete
+          ? {
+              status: "done",
+              raw: { skipped: true, reason: "BROWSER_ONLY" },
+              result: {
+                status: "clear",
+                headline: "Not run in background pipeline",
+                summary: "Cross-document consistency runs during interactive document upload.",
+                details: [],
+              },
+              error: null,
+            }
+          : {
+              status: isActivelyRunning ? "running" : "unavailable",
+              raw: null,
+              result: null,
+              error: null,
+            };
+
+      // The pipeline saves `raw` only, so interpret it here.
+      if (check.status === "done" && check.raw && !check.result) {
+        try {
+          check = { ...check, result: CHECKS[key].interpret(check.raw) };
+        } catch (error) {
+          console.error(`[useScreenings] Could not interpret saved ${key} result:`, error);
+          check = { ...check, status: "error", error: "Saved result could not be displayed." };
+        }
+      }
       if (key === "duplicate" && role === "adjuster" && saved?.check) {
         const raw = {
           ...(saved.check.raw || {}),
@@ -54,10 +92,7 @@ function mapCloudClaim(claim, role) {
           result: CHECKS.duplicate.interpret(raw),
         };
       }
-      return [
-        key,
-        check,
-      ];
+      return [key, check];
     })
   );
   const claimIdTime = claim.claimId?.match(/-(\d{13})(?:-|$)/)?.[1];
@@ -68,9 +103,11 @@ function mapCloudClaim(claim, role) {
   return {
     id: claim.claimId,
     submittedAt,
+    screeningStatus: claim.screeningStatus || "UNAVAILABLE",
     claim: {
+      claimantName: claim.claimantName || "",
       policyNumber: claim.policyNumber || "",
-      claimType: claim.claimType || "Unknown",
+      claimType: claim.claimType || "General",
       incidentDate: claim.incidentDate || "",
       claimAmountINR: claim.claimAmountINR,
     },
@@ -80,10 +117,59 @@ function mapCloudClaim(claim, role) {
   };
 }
 
+function mergeChecks(existingChecks = {}, incomingChecks = {}) {
+  const merged = { ...existingChecks };
+  for (const key of CHECK_ORDER) {
+    const existing = existingChecks[key];
+    const incoming = incomingChecks[key];
+    if (!incoming) continue;
+
+    // Never let an "unavailable" placeholder overwrite an active or finished local check.
+    if (
+      incoming.status === "unavailable" &&
+      existing &&
+      ["running", "pending", "done", "error"].includes(existing.status)
+    ) {
+      continue;
+    }
+
+    // Preserve interactive cross-document consistency results over background placeholders.
+    if (
+      key === "consistency" &&
+      existing?.status === "done" &&
+      !existing?.raw?.skipped
+    ) {
+      continue;
+    }
+
+    merged[key] = incoming;
+  }
+  return merged;
+}
+
 function mergeRecords(current, incoming) {
   const byId = new Map(current.map((record) => [record.id, record]));
   for (const record of incoming) {
-    if (!byId.has(record.id)) byId.set(record.id, record);
+    const existing = byId.get(record.id);
+    if (!existing) {
+      byId.set(record.id, record);
+    } else {
+      byId.set(record.id, {
+        ...existing,
+        ...record,
+        screeningStatus:
+          record.screeningStatus && record.screeningStatus !== "UNAVAILABLE"
+            ? record.screeningStatus
+            : existing.screeningStatus,
+        claim: {
+          ...existing.claim,
+          ...record.claim,
+          claimantName: record.claim?.claimantName || existing.claim?.claimantName || "",
+        },
+        documents: record.documents?.length ? record.documents : existing.documents,
+        checks: mergeChecks(existing.checks, record.checks),
+      });
+    }
   }
   return [...byId.values()].sort((a, b) => b.submittedAt - a.submittedAt);
 }
@@ -185,6 +271,35 @@ export function useScreenings(userId, role) {
     };
   }, [applyPage, awsFetched, setAwsFetched, userId]);
 
+  const loadClaim = useCallback(
+    async (claimId) => {
+      const result = await fetchClaimHistory(1, null, claimId);
+      const record = (result.claims || []).map((claim) => mapCloudClaim(claim, role))[0];
+      if (record) setRecords((current) => mergeRecords(current, [record]));
+      return record || null;
+    },
+    [role, setRecords]
+  );
+
+  // Auto-poll recent actively running cloud claims so adjuster/claimant views
+  // update automatically once the Step Functions pipeline writes results to DynamoDB.
+  const hasRunningClaims = records.some(
+    (r) =>
+      r.cloudRecord &&
+      r.screeningStatus === "RUNNING" &&
+      Date.now() - r.submittedAt < 15 * 60 * 1000
+  );
+
+  useEffect(() => {
+    if (!userId || !hasRunningClaims) return;
+    const interval = setInterval(() => {
+      fetchClaimHistory(PAGE_SIZE)
+        .then((result) => applyPage(result))
+        .catch(() => {});
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [applyPage, hasRunningClaims, userId]);
+
   const loadMore = useCallback(async () => {
     if (!nextCursor || isLoadingMore) return;
     setIsLoadingMore(true);
@@ -198,12 +313,12 @@ export function useScreenings(userId, role) {
     }
   }, [isLoadingMore, loadPage, nextCursor, setIsLoadingMore]);
 
-  const loadClaim = useCallback(
+  const refreshClaim = useCallback(
     async (claimId) => {
       const result = await fetchClaimHistory(1, null, claimId);
-      const record = (result.claims || []).map((claim) => mapCloudClaim(claim, role))[0];
-      if (record) setRecords((current) => mergeRecords(current, [record]));
-      return record || null;
+      const cloud = (result.claims || []).map((claim) => mapCloudClaim(claim, role))[0];
+      if (!cloud) throw new Error("Screening finished, but its results could not be loaded.");
+      setRecords((current) => mergeRecords(current, [cloud]));
     },
     [role, setRecords]
   );
@@ -244,13 +359,15 @@ export function useScreenings(userId, role) {
           finishedAt: Date.now(),
         };
         patchCheck(id, key, checkResult);
-        try {
-          await persistScreeningResult(id, key, checkResult);
-          patchCheck(id, key, { persistenceSource: "authenticated-client" });
-        } catch (error) {
-          console.error(`[useScreenings] Could not persist ${key} result:`, error);
-          patchCheck(id, key, { persistenceError: error.message });
-          toast.error(`${CHECKS[key].title} completed, but its result was not saved to claim history.`);
+        if (role === "adjuster") {
+          try {
+            await persistScreeningResult(id, key, checkResult);
+            patchCheck(id, key, { persistenceSource: "authenticated-client" });
+          } catch (error) {
+            console.error(`[useScreenings] Could not persist ${key} result:`, error);
+            patchCheck(id, key, { persistenceError: error.message });
+            toast.error(`${CHECKS[key].title} completed, but its result was not saved to claim history.`);
+          }
         }
       } catch (error) {
         const checkResult = {
@@ -261,17 +378,55 @@ export function useScreenings(userId, role) {
           finishedAt: Date.now(),
         };
         patchCheck(id, key, checkResult);
-        try {
-          await persistScreeningResult(id, key, checkResult);
-        } catch (persistError) {
-          console.error(`[useScreenings] Could not persist failed ${key} result:`, persistError);
-          patchCheck(id, key, { persistenceError: persistError.message });
+        if (role === "adjuster") {
+          try {
+            await persistScreeningResult(id, key, checkResult);
+          } catch (persistError) {
+            console.error(`[useScreenings] Could not persist failed ${key} result:`, persistError);
+            patchCheck(id, key, { persistenceError: persistError.message });
+          }
         }
       } finally {
         inflight.current.delete(token);
       }
     },
-    [patchCheck]
+    [patchCheck, role]
+  );
+
+  // Backend pipeline: submit once, poll until Step Functions finishes, then
+  // pull the system-written results back from DynamoDB.
+  const runPipeline = useCallback(
+    async (claimId, claim, documents) => {
+      const token = `${claimId}:pipeline`;
+      if (inflight.current.has(token)) return;
+      inflight.current.add(token);
+      PIPELINE_KEYS.forEach((key) =>
+        patchCheck(claimId, key, { status: "running", error: null })
+      );
+      try {
+        await submitClaim(claimId, claim, documents);
+        const outcome = await waitForPipeline(claimId);
+        if (outcome.status !== "COMPLETE") {
+          throw new Error(outcome.cause || outcome.error || "Screening did not complete.");
+        }
+        await refreshClaim(claimId);
+        if (CHECK_ORDER.includes("consistency")) {
+          await runCheck(claimId, "consistency", claim, documents);
+        }
+      } catch (error) {
+        PIPELINE_KEYS.forEach((key) =>
+          patchCheck(claimId, key, {
+            status: "error",
+            result: null,
+            error: error.message || "Screening could not be completed.",
+          })
+        );
+        toast.error(`Screening failed: ${error.message}`);
+      } finally {
+        inflight.current.delete(token);
+      }
+    },
+    [patchCheck, refreshClaim, runCheck]
   );
 
   const start = useCallback(
@@ -279,13 +434,14 @@ export function useScreenings(userId, role) {
       const checks = Object.fromEntries(
         CHECK_ORDER.map((key) => [
           key,
-          { status: "pending", result: null, raw: null, error: null },
+          { status: "running", result: null, raw: null, error: null },
         ])
       );
       setRecords((current) =>
         mergeRecords(current, [{
           id: claimId,
           submittedAt: Date.now(),
+          screeningStatus: "RUNNING",
           claim,
           documents,
           checks,
@@ -302,14 +458,20 @@ export function useScreenings(userId, role) {
           )
         );
       };
-      runAllChecks();
+      if (USE_PIPELINE) runPipeline(claimId, claim, documents);
+      else runAllChecks();
     },
-    [runCheck, setRecords]
+    [runCheck, runPipeline, setRecords]
   );
 
   const retry = useCallback(
-    (record, key) =>
-      runCheck(record.id, key, record.claim, record.documents || []),
+    (record, key) => {
+      if (USE_PIPELINE && key !== "consistency") {
+        toast("Pipeline checks re-run automatically. Submit a new claim to re-screen.");
+        return;
+      }
+      return runCheck(record.id, key, record.claim, record.documents || []);
+    },
     [runCheck]
   );
 

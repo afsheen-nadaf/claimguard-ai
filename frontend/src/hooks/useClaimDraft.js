@@ -1,4 +1,3 @@
-
 import { useCallback, useRef, useState } from "react";
 import { CLAIM_TYPES, UPLOAD_RULES } from "../api/config";
 import { extractDocument, uploadDocument } from "../api/claims";
@@ -21,6 +20,7 @@ function withWorkflowStep(current, step) {
 // Maps Bedrock extraction output fields to the claim-form field names.
 // Only these fields are auto-filled from uploaded documents.
 const EXTRACTION_FIELD_MAP = {
+  claimantName: "claimantName",
   policyNumber: "policyNumber",
   claimType: "claimType",
   incidentDate: "incidentDate",
@@ -141,7 +141,7 @@ export function useClaimDraft() {
       ? { step: 1, entryMode: nextEntryMode }
       : { ...current, step: 1, entryMode: nextEntryMode });
   };
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [form, setForm] = useState({ ...EMPTY_FORM, claimantName: "" });
   const [touched, setTouched] = useState({});
   const [attempted, setAttempted] = useState(false);
 
@@ -433,7 +433,7 @@ export function useClaimDraft() {
 
   const reset = useCallback(() => {
     setWorkflow(1);
-    setForm(EMPTY_FORM);
+    setForm({ ...EMPTY_FORM, claimantName: "" });
     setTouched({});
     setAttempted(false);
     setFiles([]);
@@ -443,7 +443,17 @@ export function useClaimDraft() {
     claimIdRef.current = null;
   }, []);
 
-  const errors = validateClaim(form);
+  const trimmedName = String(form.claimantName || "").trim();
+  const claimantNameError = !trimmedName
+    ? "Enter the claimant's full name."
+    : !/^[\p{L}\s]+$/u.test(trimmedName)
+      ? "Name can only contain letters and spaces (no numbers or symbols)."
+      : null;
+
+  const errors = {
+    ...validateClaim(form),
+    ...(claimantNameError ? { claimantName: claimantNameError } : {}),
+  };
 
   // Files now upload immediately when added in the Documents step, so
   // submit only needs to verify all uploads finished and pass the S3
@@ -452,7 +462,10 @@ export function useClaimDraft() {
   // are still uploading or failed to upload.
   const submit = useCallback(
     (onReady) => {
-      if (Object.keys(validateClaim(form)).length > 0) {
+      if (
+        claimantNameError ||
+        Object.keys(validateClaim(form)).length > 0
+      ) {
         setAttempted(true);
         setWorkflow((current) => withWorkflowStep(current, 1));
         return;
@@ -498,7 +511,10 @@ export function useClaimDraft() {
       // compare fields across documents without calling the backend again.
       onReady({
         claimId,
-        claim: toClaimSnapshot(form),
+        claim: {
+          ...toClaimSnapshot(form),
+          claimantName: String(form.claimantName || "").trim(),
+        },
         documents: files.map((file) => ({
           name: file.file.name,
           size: file.file.size,

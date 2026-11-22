@@ -1,4 +1,3 @@
-
 import json
 import os
 import re
@@ -53,8 +52,6 @@ KEY_PATTERN = re.compile(
     r"^incoming/[A-Za-z0-9._/-]+$"
 )
 
-# Minimum remaining Lambda execution time (ms) required to start Smaug.
-# If time is below this, Smaug is skipped to avoid a timeout.
 SMAUG_MIN_REMAINING_TIME_MS = int(
     os.environ.get("SMAUG_MIN_REMAINING_TIME_MS", "20000")
 )
@@ -64,15 +61,17 @@ SMAUG_MIN_REMAINING_TIME_MS = int(
 # API RESPONSE
 # --------------------------------------------------
 
-def response(status_code, body):
-
+def response(status_code, body, is_function_url=True):
     headers = {
         "Content-Type": "application/json",
-        "Access-Control-Allow-Methods": "OPTIONS,POST",
-        "Access-Control-Allow-Headers": "Content-Type,Authorization",
     }
-    if CORS_ORIGIN:
-        headers["Access-Control-Allow-Origin"] = CORS_ORIGIN
+    # Function URL CORS config in template.yaml automatically injects
+    # Access-Control-Allow-* headers. Only add them manually for API Gateway REST.
+    if not is_function_url:
+        headers["Access-Control-Allow-Methods"] = "OPTIONS,POST"
+        headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization"
+        if CORS_ORIGIN:
+            headers["Access-Control-Allow-Origin"] = CORS_ORIGIN
     return {
         "statusCode": status_code,
         "headers": headers,
@@ -102,7 +101,6 @@ def authorize_claim_images(identity, claim_id, image_keys):
 # --------------------------------------------------
 
 def validate_keys(image_keys):
-
     if not isinstance(image_keys, list) or not image_keys:
         raise ValueError(
             "imageKeys must be a non-empty list."
@@ -118,7 +116,6 @@ def validate_keys(image_keys):
     seen = set()
 
     for key in image_keys:
-
         if (
             not isinstance(key, str)
             or not KEY_PATTERN.fullmatch(key)
@@ -153,7 +150,6 @@ def validate_keys(image_keys):
 # --------------------------------------------------
 
 def analyze_s3_image(key, context=None):
-
     filename = Path(key).name
     suffix = Path(filename).suffix.lower()
 
@@ -161,15 +157,9 @@ def analyze_s3_image(key, context=None):
         suffix=suffix,
         delete=False
     ) as temp:
-
         local_path = Path(temp.name)
 
     try:
-
-        # ------------------------------------------
-        # DOWNLOAD IMAGE FROM PRIVATE S3 BUCKET
-        # ------------------------------------------
-
         head = s3.head_object(
             Bucket=BUCKET,
             Key=key
@@ -198,64 +188,43 @@ def analyze_s3_image(key, context=None):
 
         results = {}
 
-        # ------------------------------------------
         # 1. METADATA ANALYSIS
-        # ------------------------------------------
-
         try:
-
             results["metadata"] = {
                 "status": "COMPLETED",
                 "result": extract_metadata(local_path)
             }
-
         except Exception as exc:
-
             results["metadata"] = {
                 "status": "ERROR",
                 "error": str(exc)[:500]
             }
 
-        # ------------------------------------------
         # 2. COMPRESSION ANALYSIS
-        # ------------------------------------------
-
         try:
-
             results["compression"] = {
                 "status": "COMPLETED",
                 "result": analyze_compression(local_path)
             }
-
         except Exception as exc:
-
             results["compression"] = {
                 "status": "ERROR",
                 "error": str(exc)[:500]
             }
 
-        # ------------------------------------------
         # 3. IMAGE QUALITY ANALYSIS
-        # ------------------------------------------
-
         try:
-
             results["imageQuality"] = {
                 "status": "COMPLETED",
                 "result": analyze_image_quality(local_path)
             }
-
         except Exception as exc:
-
             results["imageQuality"] = {
                 "status": "ERROR",
                 "error": str(exc)[:500]
             }
 
-        # ------------------------------------------
         # 4. SMAUG AI-GENERATION DETECTION (LOCAL)
-        # ------------------------------------------
-
         remaining_ms = None
         if context is not None and hasattr(context, "get_remaining_time_in_millis"):
             try:
@@ -276,27 +245,18 @@ def analyze_s3_image(key, context=None):
         else:
             try:
                 smaug_result = smaug_analyze(local_path)
-
                 results["aiGeneration"] = {
                     "status": "COMPLETED",
                     "result": smaug_result
                 }
-
             except Exception as exc:
                 results["aiGeneration"] = {
                     "status": "ERROR",
                     "error": str(exc)[:500]
                 }
 
-        # ------------------------------------------
         # 5. ANALYST REVIEW RECOMMENDATION
-        # ------------------------------------------
-
         review = generate_review(results)
-
-        # ------------------------------------------
-        # FINAL IMAGE RESULT
-        # ------------------------------------------
 
         return {
             "fileName": filename,
@@ -307,12 +267,21 @@ def analyze_s3_image(key, context=None):
         }
 
     finally:
-
         try:
             local_path.unlink(missing_ok=True)
-
         except OSError:
             pass
+
+
+def trusted_identity(event):
+    claims = ((event.get("requestContext") or {}).get("authorizer") or {}).get("claims") or {}
+    sub = claims.get("sub")
+    if not isinstance(sub, str) or not sub:
+        return None
+    groups = claims.get("cognito:groups") or []
+    if isinstance(groups, str):
+        groups = [g.strip() for g in groups.split(",") if g.strip()]
+    return {"userId": sub, "email": claims.get("email"), "groups": set(groups)}
 
 
 # --------------------------------------------------
@@ -320,46 +289,34 @@ def analyze_s3_image(key, context=None):
 # --------------------------------------------------
 
 def lambda_handler(event, context):
-
-    # ----------------------------------------------
-    # CORS PREFLIGHT
-    # ----------------------------------------------
-
     request_context = event.get("requestContext") or {}
+    is_function_url = "http" in request_context
     method = event.get("httpMethod") or (request_context.get("http") or {}).get("method")
-    if method == "OPTIONS":
 
+    if method == "OPTIONS":
         return response(
             200,
-            {
-                "message": "CORS preflight successful."
-            }
+            {"message": "CORS preflight successful."},
+            is_function_url=is_function_url,
         )
 
-    try:
-        identity = verify_id_token(event.get("headers") or {})
-    except PyJWKClientConnectionError:
-        return response(503, {"error": "Authentication verification is temporarily unavailable."})
-    except TokenConfigurationError:
-        return response(500, {"error": "Authentication verification is not configured."})
-    except (InvalidTokenError, PyJWKClientError, ValueError):
-        return response(401, {"error": "Unauthorized"})
+    identity = trusted_identity(event)
+    if identity is None:
+        try:
+            identity = verify_id_token(event.get("headers") or {})
+        except PyJWKClientConnectionError:
+            return response(503, {"error": "Authentication verification is temporarily unavailable."}, is_function_url)
+        except TokenConfigurationError:
+            return response(500, {"error": "Authentication verification is not configured."}, is_function_url)
+        except (InvalidTokenError, PyJWKClientError, ValueError):
+            return response(401, {"error": "Unauthorized"}, is_function_url)
 
     try:
-
-        # ------------------------------------------
-        # PARSE REQUEST BODY
-        # ------------------------------------------
-
         body = event.get("body") or "{}"
 
         if event.get("isBase64Encoded"):
-
             import base64
-
-            body = base64.b64decode(
-                body
-            ).decode("utf-8")
+            body = base64.b64decode(body).decode("utf-8")
 
         payload = (
             json.loads(body)
@@ -367,41 +324,21 @@ def lambda_handler(event, context):
             else body
         )
 
-        # ------------------------------------------
-        # VALIDATE CLAIM ID
-        # ------------------------------------------
-
         claim_id = payload.get("claimId")
 
         if (
             not isinstance(claim_id, str)
             or not claim_id.strip()
         ):
-            raise ValueError(
-                "claimId is required."
-            )
+            raise ValueError("claimId is required.")
 
-        # ------------------------------------------
-        # VALIDATE IMAGE KEYS
-        # ------------------------------------------
-
-        keys = validate_keys(
-            payload.get("imageKeys")
-        )
+        keys = validate_keys(payload.get("imageKeys"))
         authorize_claim_images(identity, claim_id.strip(), keys)
-
-        # ------------------------------------------
-        # ANALYZE ALL CLAIM IMAGES
-        # ------------------------------------------
 
         image_results = [
             analyze_s3_image(key, context=context)
             for key in keys
         ]
-
-        # ------------------------------------------
-        # CALCULATE ANALYSIS STATISTICS
-        # ------------------------------------------
 
         completed = sum(
             1
@@ -417,38 +354,22 @@ def lambda_handler(event, context):
             if item["status"] == "ERROR"
         )
 
-        # ------------------------------------------
-        # DETERMINE OVERALL STATUS
-        # ------------------------------------------
-
         if errors == 0:
             analysis_status = "COMPLETED"
-
         elif completed > 0:
             analysis_status = "PARTIAL"
-
         else:
             analysis_status = "FAILED"
-
-        # ------------------------------------------
-        # FINAL API RESPONSE
-        # ------------------------------------------
 
         return response(
             200,
             {
                 "claimId": claim_id,
-
                 "analysisStatus": analysis_status,
-
                 "imagesSubmitted": len(image_results),
-
                 "analysesCompleted": completed,
-
                 "analysesWithErrors": errors,
-
                 "images": image_results,
-
                 "disclaimer": (
                     "Metadata, compression, image-quality "
                     "and AI-generation observations are "
@@ -458,59 +379,30 @@ def lambda_handler(event, context):
                     "otherwise genuine photographs. All "
                     "flagged claims require human review."
                 )
-            }
+            },
+            is_function_url=is_function_url,
         )
-
-    # ----------------------------------------------
-    # VALIDATION ERRORS
-    # ----------------------------------------------
 
     except PermissionError:
-        return response(403, {"error": "Forbidden"})
+        return response(403, {"error": "Forbidden"}, is_function_url)
 
     except (ValueError, json.JSONDecodeError) as exc:
-
-        return response(
-            400,
-            {
-                "error": str(exc)
-            }
-        )
-
-    # ----------------------------------------------
-    # AWS S3 ERRORS
-    # ----------------------------------------------
+        return response(400, {"error": str(exc)}, is_function_url)
 
     except ClientError as exc:
-
-        code = exc.response.get(
-            "Error", {}
-        ).get(
-            "Code",
-            "AWS_ERROR"
-        )
-
+        code = exc.response.get("Error", {}).get("Code", "AWS_ERROR")
         return response(
             502,
             {
-                "error": (
-                    "Unable to retrieve an uploaded image."
-                ),
+                "error": "Unable to retrieve an uploaded image.",
                 "code": code
-            }
+            },
+            is_function_url=is_function_url,
         )
 
-    # ----------------------------------------------
-    # UNEXPECTED ERRORS
-    # ----------------------------------------------
-
     except Exception:
-
         return response(
             500,
-            {
-                "error": (
-                    "Image analysis could not be completed."
-                )
-            }
+            {"error": "Image analysis could not be completed."},
+            is_function_url=is_function_url,
         )

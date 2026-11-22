@@ -2,36 +2,26 @@ import Icon from "../components/Icon";
 import ArchitectureDiagram from "../components/ArchitectureDiagram";
 import { Card, PageHeader } from "../components/ui";
 
-const CHECK_INFO = [
+const STEPS_INFO = [
   {
-    icon: "clipboard",
-    title: "Policy validation",
-    text: "Sends the policy number, claim type, incident date and amount to the validation API, which applies deterministic policy rules. Any flags it returns are listed with the result.",
+    icon: "upload",
+    title: "1. Private Document Upload",
+    text: "Supporting PDFs and incident photos are uploaded directly to encrypted private storage using short-lived, single-use links tied strictly to your account.",
   },
   {
-    icon: "copy",
-    title: "Duplicate-claim detection",
-    text: "Compares the policy number, incident date and amount against seeded reference claims and earlier submissions. The same call registers the claim, so later claims can be compared against it.",
+    icon: "cpu",
+    title: "2. Smart Form Auto-Fill",
+    text: "When you start with a PDF document, Amazon Bedrock Nova Lite extracts key claim details—such as policy number, date, and amount—for you to review and edit.",
   },
   {
-    icon: "sliders",
-    title: "Claim-amount outlier detection",
-    text: "Compares the amount against historical claims of the same type using a robust statistic built on the median and median absolute deviation. The API reports its sample size, method and bounds, and those are shown as returned.",
+    icon: "shield",
+    title: "3. Automated Verification",
+    text: "Once submitted, AWS Step Functions coordinates independent checks for policy coverage, document completeness, and evidence consistency.",
   },
   {
-    icon: "image",
-    title: "Image forensics",
-    text: "Inspects uploaded photos for metadata, compression and AI-generation signals. Missing metadata is shown as missing and is never treated as proof of tampering.",
-  },
-  {
-    icon: "search",
-    title: "Evidence relevance",
-    text: "Checks whether uploaded documents and photos match the reported claim type and incident, and explains each judgement.",
-  },
-  {
-    icon: "layers",
-    title: "Cross-document consistency",
-    text: "Compares details extracted from each uploaded document and flags fields that disagree, such as names, dates or amounts.",
+    icon: "checkCircle",
+    title: "4. Human Adjuster Review",
+    text: "Every claim is reviewed by a qualified insurance adjuster. Automated checks assist with faster verification and never make an automated rejection.",
   },
 ];
 
@@ -40,64 +30,62 @@ export default function HowItWorksPage() {
     <>
       <PageHeader
         eyebrow="HOW IT WORKS"
-        title="How screening works"
-        description="Multi-layered fraud detection powered by AWS serverless architecture."
+        title="How claim submission works"
+        description="A fast, transparent, and secure way to submit insurance claims and supporting evidence."
       />
 
-      <Card title="System Architecture" icon="layers" className="mt mb-12">
-        <ArchitectureDiagram />
-        <div className="tech-stack mt">
-          <div className="tech-badge">
-            <Icon name="layers" size={16} />
-            <span>AWS Lambda</span>
-          </div>
-          <div className="tech-badge">
-            <Icon name="database" size={16} />
-            <span>DynamoDB</span>
-          </div>
-          <div className="tech-badge">
-            <Icon name="upload" size={16} />
-            <span>S3</span>
-          </div>
-          <div className="tech-badge">
-            <Icon name="zap" size={16} />
-            <span>API Gateway</span>
-          </div>
-          <div className="tech-badge">
-            <Icon name="cpu" size={16} />
-            <span>Amazon Bedrock</span>
-          </div>
-          <div className="tech-badge">
-            <Icon name="shield" size={16} />
-            <span>Nova Lite</span>
-          </div>
-        </div>
-      </Card>
-
-      <div className="three-col">
-        {CHECK_INFO.map((c) => (
+      <div className="two-col">
+        {STEPS_INFO.map((c) => (
           <Card key={c.title} title={c.title} icon={c.icon}>
             <p>{c.text}</p>
           </Card>
         ))}
       </div>
 
+      <Card title="Platform Architecture" icon="layers" className="mt mb-12">
+        <ArchitectureDiagram />
+        <div className="tech-stack mt">
+          <div className="tech-badge">
+            <Icon name="shield" size={16} />
+            <span>Amazon Cognito</span>
+          </div>
+          <div className="tech-badge">
+            <Icon name="zap" size={16} />
+            <span>API Gateway</span>
+          </div>
+          <div className="tech-badge">
+            <Icon name="layers" size={16} />
+            <span>AWS Step Functions</span>
+          </div>
+          <div className="tech-badge">
+            <Icon name="upload" size={16} />
+            <span>Encrypted S3</span>
+          </div>
+          <div className="tech-badge">
+            <Icon name="cpu" size={16} />
+            <span>Amazon Bedrock</span>
+          </div>
+          <div className="tech-badge">
+            <Icon name="database" size={16} />
+            <span>DynamoDB</span>
+          </div>
+        </div>
+      </Card>
+
       <div className="two-col mt">
-        <Card title="From submission to summary" icon="layers">
+        <Card title="What happens after you submit" icon="layers">
           <ol className="numbered">
-            <li><strong>Documents upload first.</strong> Each file is sent straight to private storage using a short-lived presigned link. If any upload fails, nothing is registered or screened.</li>
-            <li><strong>The checks run independently.</strong> A failure in one is shown as a failure, never as a pass, and can be retried on its own.</li>
-            <li><strong>The summary combines what actually ran.</strong> It reports counts of passed, review-required and incomplete checks, with the reason for each.</li>
-            <li><strong>A person decides.</strong> The summary recommends a next step for a reviewer. It never concludes that a claim is fraudulent or genuine.</li>
+            <li><strong>Immediate confirmation.</strong> Your claim receives a unique Claim ID and appears immediately under <strong>My Claims</strong>.</li>
+            <li><strong>Background processing.</strong> Your uploaded documents and photos are verified securely without keeping your browser open.</li>
+            <li><strong>Adjuster assignment.</strong> An adjuster reviews your complete claim packet and follows up if additional information is needed.</li>
           </ol>
         </Card>
 
-        <Card title="What this does not do" icon="alert">
+        <Card title="Your privacy & security" icon="lock">
           <ul className="plain-list bullets">
-            <li>It does not produce a fraud score or probability.</li>
-            <li>An unusual amount or a duplicate match is a signal for investigation, not proof.</li>
-            <li>Image forensics and AI-generation signals can be wrong, and missing metadata is not evidence of tampering.</li>
-            <li>It never decides a claim. A person reviews every flagged result.</li>
+            <li>Uploaded documents are never publicly accessible and are isolated per claim.</li>
+            <li>Role-based access ensures only you and authorized claims adjusters can view your submission.</li>
+            <li>You can review and edit every extracted field before finalizing your submission.</li>
           </ul>
         </Card>
       </div>

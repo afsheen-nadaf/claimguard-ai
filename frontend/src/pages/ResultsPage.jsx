@@ -80,6 +80,7 @@ export default function ResultsPage({ record, onRetry, navigate }) {
   const summary = summarize(screeningChecks);
   const riskScore = calculateRiskScore(screeningChecks);
   const { claim } = record;
+  const policyHolderName = screeningChecks.policy?.raw?.policyHolderName || null;
   const checksNeedingAttention = getChecksNeedingAttention(screeningChecks);
   const firstFlaggedCheck = checksNeedingAttention.find(
     (key) => screeningChecks[key].result?.state === "review"
@@ -173,6 +174,15 @@ export default function ResultsPage({ record, onRetry, navigate }) {
                 Claim #{record.id}
               </h1>
               <div className="flex items-center gap-4 flex-wrap text-sm">
+                {claim.claimantName && (
+                  <>
+                    <span className="flex items-center gap-2 text-purple-100">
+                      <Icon name="user" size={14} className="text-purple-300" />
+                      <span className="font-semibold">{claim.claimantName}</span>
+                    </span>
+                    <span className="text-purple-700">•</span>
+                  </>
+                )}
                 <span className="flex items-center gap-2 text-purple-200">
                   <Icon name="calendar" size={14} className="text-purple-300" />
                   <span className="font-medium">{formatDateTime(record.submittedAt)}</span>
@@ -430,6 +440,10 @@ export default function ResultsPage({ record, onRetry, navigate }) {
                 </h3>
                 <KeyValueList
                   items={[
+                    { label: "Claimant Name", value: claim.claimantName || "—" },
+                    ...(policyHolderName
+                      ? [{ label: "Policyholder on Record", value: policyHolderName }]
+                      : []),
                     { label: "Submitted", value: formatDateTime(record.submittedAt) },
                     { label: "Policy Number", value: claim.policyNumber },
                     { label: "Claim Type", value: claim.claimType },

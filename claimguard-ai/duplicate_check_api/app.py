@@ -117,7 +117,6 @@ def validate_image_keys(image_keys):
         raise ValueError("imageKeys must not contain duplicate entries.")
 
     for key in image_keys:
-
         if ".." in key.split("/") or len(key) > 1024:
             raise ValueError("An image key is invalid.")
 
@@ -206,19 +205,19 @@ def process_claim_images(claim_id, image_keys):
                 continue
 
             try:
-                distance = new_hash - imagehash.hex_to_hash(old_phash)
+                # Cast numpy.int64 from imagehash subtraction to native Python int
+                distance = int(new_hash - imagehash.hex_to_hash(old_phash))
             except (ValueError, TypeError):
                 continue
 
             if distance <= PHASH_DISTANCE_THRESHOLD:
+                similarity = Decimal(str(round((64 - distance) / 64 * 100, 2)))
                 matches.append({
                     "claimId": old_claim_id,
                     "matchedImageId": old_image.get("imageId"),
                     "uploadedImageKey": new_image["s3Key"],
                     "hammingDistance": distance,
-                    "similarityPercent": round(
-                        (64 - distance) / 64 * 100, 2
-                    ),
+                    "similarityPercent": similarity,
                     "source": "IMAGE_HASH",
                 })
 
@@ -311,8 +310,8 @@ def lambda_handler(event, context):
                     "originalDuplicateStatus": existing_operational.get(
                         "duplicateStatus"
                     ),
-                    "matchCount": existing_operational.get("duplicateMatchCount", 0),
-                    "imageMatchCount": existing_operational.get("duplicateImageMatchCount", 0),
+                    "matchCount": int(existing_operational.get("duplicateMatchCount", 0)),
+                    "imageMatchCount": int(existing_operational.get("duplicateImageMatchCount", 0)),
                     "imageMatches": [],
                     "imageMatchStatus": "REVIEW" if image_matches else "NO_MATCH",
                     "note": "Image matches are review signals, not proof of fraud.",
@@ -369,16 +368,18 @@ def lambda_handler(event, context):
         record = {
             "claimId": claim_id,
             "userId": identity["userId"],
+            "claimantName": str(body.get("claimantName", "")).strip(),
             "policyNumber": policy_number,
             "claimType": str(body.get("claimType", "")).strip(),
             "incidentDate": incident_date,
             "claimAmountINR": claim_amount,
+            "screeningStatus": "RUNNING",
             "duplicateStatus": duplicate_status,
             "matchType": match_type or "NONE",
             "duplicateMatches": matches[:10],
-            "duplicateMatchCount": len(matches),
+            "duplicateMatchCount": int(len(matches)),
             "duplicateImageMatches": image_matches[:10],
-            "duplicateImageMatchCount": len(image_matches),
+            "duplicateImageMatchCount": int(len(image_matches)),
             "createdAt": datetime.now(timezone.utc).isoformat(),
         }
 
@@ -406,9 +407,9 @@ def lambda_handler(event, context):
                 else "No configured duplicate match found. Claim registered."
             ),
             "matches": [],
-            "matchCount": len(matches),
+            "matchCount": int(len(matches)),
             "imageMatches": [],
-            "imageMatchCount": len(image_matches),
+            "imageMatchCount": int(len(image_matches)),
             "imageMatchStatus": "REVIEW" if image_matches else "NO_MATCH",
             "registeredClaimId": claim_id,
             "note": "A matching record is a review signal, not proof of fraud.",

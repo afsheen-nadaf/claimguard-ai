@@ -168,9 +168,14 @@ export default function HistoryPage({
   isLoadingMore = false,
   onLoadMore,
 }) {
+  const isClaimant = role === "claimant";
   const [filters, setFilters] = useState(readSavedFilters);
   const { query, outcome, sortOrder } = filters;
-  const filteredRecords = filterHistoryRecords(records, { query, outcome, sortOrder });
+  const filteredRecords = filterHistoryRecords(records, {
+    query,
+    outcome: isClaimant ? "all" : outcome,
+    sortOrder,
+  });
 
   useEffect(() => {
     try {
@@ -202,24 +207,27 @@ export default function HistoryPage({
     <>
       <PageHeader
         eyebrow="CLAIM HISTORY"
-        title={role === "claimant" ? "My claims" : "Claim history"}
+        title={isClaimant ? "My claims" : "Claim history"}
         description={
-          role === "claimant"
-            ? "Your submitted claims and their screening status."
+          isClaimant
+            ? "Track your submitted claims and submission details."
             : "Claims, screening status, and fraud signals available for adjuster review."
         }
       />
 
       <Callout tone="info">
-        <strong className="font-semibold">Authenticated history.</strong> Claims are loaded from your account; search, outcome, and sort preferences persist in this browser.
+        <strong className="font-semibold">Authenticated history.</strong>{" "}
+        {isClaimant
+          ? "Your submitted claims are synced with your account."
+          : "Claims are loaded from your account; search, outcome, and sort preferences persist in this browser."}
       </Callout>
 
       <Card>
         {records.length === 0 ? (
           <EmptyState
             icon="history"
-            title="Nothing screened yet"
-            action={role === "claimant" ? (
+            title={isClaimant ? "No claims submitted yet" : "Nothing screened yet"}
+            action={isClaimant ? (
               <button
                 type="button"
                 className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-xl font-semibold hover:from-purple-500 hover:to-purple-600 transition-all shadow-lg"
@@ -229,7 +237,9 @@ export default function HistoryPage({
               </button>
             ) : null}
           >
-            Submit a claim and it will be listed here with its outcome.
+            {isClaimant
+              ? "Submit a claim and it will appear here."
+              : "Submit a claim and it will be listed here with its outcome."}
           </EmptyState>
         ) : (
           <>
@@ -247,24 +257,26 @@ export default function HistoryPage({
                 />
               </label>
 
-              <div className="flex flex-col gap-2 min-w-[170px]">
-                <span className="text-[10px] font-semibold text-purple-400 uppercase tracking-wide">Outcome</span>
-                <HistoryFilterDropdown
-                  id="history-outcome"
-                  label="Outcome"
-                  value={outcome}
-                  onChange={(value) => updateFilter("outcome", value)}
-                  options={[
-                    { value: "all", label: "All outcomes" },
-                    { value: "review", label: "Review needed" },
-                    { value: "incomplete", label: "Incomplete" },
-                    { value: "progress", label: "In progress" },
-                    { value: "clear", label: "Clear checks" },
-                    { value: "skipped", label: "Checks skipped" },
-                    { value: "unavailable", label: "Results unavailable" },
-                  ]}
-                />
-              </div>
+              {!isClaimant && (
+                <div className="flex flex-col gap-2 min-w-[170px]">
+                  <span className="text-[10px] font-semibold text-purple-400 uppercase tracking-wide">Outcome</span>
+                  <HistoryFilterDropdown
+                    id="history-outcome"
+                    label="Outcome"
+                    value={outcome}
+                    onChange={(value) => updateFilter("outcome", value)}
+                    options={[
+                      { value: "all", label: "All outcomes" },
+                      { value: "review", label: "Review needed" },
+                      { value: "incomplete", label: "Incomplete" },
+                      { value: "progress", label: "In progress" },
+                      { value: "clear", label: "Clear checks" },
+                      { value: "skipped", label: "Checks skipped" },
+                      { value: "unavailable", label: "Results unavailable" },
+                    ]}
+                  />
+                </div>
+              )}
 
               <div className="flex flex-col gap-2 min-w-[170px]">
                 <span className="text-[10px] font-semibold text-purple-400 uppercase tracking-wide">Sort</span>
@@ -280,10 +292,6 @@ export default function HistoryPage({
                 />
               </div>
             </div>
-
-            <p className="text-[11px] text-purple-400 mb-3">
-              Filters are saved on this browser.
-            </p>
 
             <p className="text-xs text-purple-300 mb-3" role="status">
               Showing {filteredRecords.length} of {records.length} claim{records.length === 1 ? "" : "s"}
@@ -303,161 +311,199 @@ export default function HistoryPage({
                   </button>
                 }
               >
-                Try another search term or outcome.
+                Try another search term or filter.
               </EmptyState>
             ) : (
-              <div className="w-full overflow-hidden border border-purple-700/30 rounded-xl">
-                <table className="history-table w-full border-collapse text-sm">
-                  <colgroup>
-                    <col style={{ width: "8%" }} />
-                    <col style={{ width: "23%" }} />
-                    <col style={{ width: "10%" }} />
-                    <col style={{ width: "6%" }} />
-                    <col style={{ width: "8%" }} />
-                    <col style={{ width: "14%" }} />
-                    <col style={{ width: "10%" }} />
-                    <col style={{ width: "12%" }} />
-                    <col style={{ width: "9%" }} />
-                  </colgroup>
-                  <thead>
-                    <tr>
-                      <th className="text-left text-[10.5px] font-bold tracking-wider uppercase text-[#f5f0e8] bg-purple-950/40 px-2 py-3 border-b border-purple-800/30 whitespace-nowrap rounded-tl-xl">
-                        Submitted
-                      </th>
-                      <th className="text-left text-[10.5px] font-bold tracking-wider uppercase text-[#f5f0e8] bg-purple-950/40 px-2 py-3 border-b border-purple-800/30 whitespace-nowrap">
-                        Claim ID
-                      </th>
-                      <th className="text-left text-[10.5px] font-bold tracking-wider uppercase text-[#f5f0e8] bg-purple-950/40 px-2 py-3 border-b border-purple-800/30 whitespace-nowrap">
-                        Policy
-                      </th>
-                      <th className="text-left text-[10.5px] font-bold tracking-wider uppercase text-[#f5f0e8] bg-purple-950/40 px-2 py-3 border-b border-purple-800/30 whitespace-nowrap">
-                        Type
-                      </th>
-                      <th className="text-right text-[10.5px] font-bold tracking-wider uppercase text-[#f5f0e8] bg-purple-950/40 px-2 py-3 border-b border-purple-800/30 whitespace-nowrap">
-                        Amount
-                      </th>
-                      <th className="text-left text-[10.5px] font-bold tracking-wider uppercase text-[#f5f0e8] bg-purple-950/40 px-2 py-3 border-b border-purple-800/30 whitespace-nowrap">
-                        Outcome
-                      </th>
-                      <th className="text-left text-[10.5px] font-bold tracking-wider uppercase text-[#f5f0e8] bg-purple-950/40 px-2 py-3 border-b border-purple-800/30 whitespace-nowrap">
-                        Evidence
-                      </th>
-                      <th className="text-left text-[10.5px] font-bold tracking-wider uppercase text-[#f5f0e8] bg-purple-950/40 px-2 py-3 border-b border-purple-800/30 whitespace-nowrap">
-                        Checks
-                      </th>
-                      <th className="text-right text-[10.5px] font-bold tracking-wider uppercase text-[#f5f0e8] bg-purple-950/40 px-2 py-3 border-b border-purple-800/30 whitespace-nowrap rounded-tr-xl">
-                        <span className="sr-only">Actions</span>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredRecords.map((r) => {
-                      const screeningChecks = normalizeSkippedForensics(r);
-                      const summary = summarizeRecord(r);
-                      const evidenceFiles = Array.isArray(r.documents) ? r.documents : [];
-                      const imageCount = evidenceFiles.filter((file) =>
-                        ["image/jpeg", "image/png"].includes(file.type) ||
-                        /\.(jpe?g|png)$/i.test(file.name || "")
-                      ).length;
-                      const pdfCount = evidenceFiles.filter((file) =>
-                        file.type === "application/pdf" || /\.pdf$/i.test(file.name || "")
-                      ).length;
-                      const evidenceSummary = summary.key === "unavailable"
-                        ? "Not available"
-                        : evidenceFiles.length
-                          ? `${pdfCount} PDF · ${imageCount} photo${imageCount === 1 ? "" : "s"}`
-                          : "No files";
-                      const forensicsSkipped = summary.counts.skipped > 0;
-                      const finishedChecks = CHECK_ORDER.filter((key) => {
-                        const check = screeningChecks[key];
-                        if (!["done", "error"].includes(check?.status)) return false;
-                        return !(key === "forensics" && forensicsSkipped);
-                      }).length;
-
-                      return (
-                        <tr
-                          key={r.id}
-                          className="hover:bg-purple-950/20 transition-colors"
-                        >
-                        <td data-label="Submitted" className="px-2 py-3 border-b border-purple-900/20 align-middle text-purple-200">
-                          {formatDateTime(r.submittedAt)}
-                        </td>
-                        <td data-label="Claim ID" className="claim-id-cell px-2 py-3 border-b border-purple-900/20 align-middle">
-                          <div className="claim-id-content">
-                            <code className="claim-id-code px-2 py-1 bg-purple-950 rounded text-xs text-purple-200 border border-purple-800" title={r.id}>
-                              {r.id}
-                            </code>
-                            <button
-                              type="button"
-                              className="p-2 text-purple-300 border border-purple-700/40 rounded-lg hover:text-white hover:bg-purple-800/40 transition-colors"
-                              aria-label={`Copy claim ID ${r.id}`}
-                              title="Copy claim ID"
-                              onClick={() => copyClaimId(r.id)}
-                            >
-                              <Icon name="copy" size={14} />
-                            </button>
-                          </div>
-                        </td>
-                        <td data-label="Policy" className="px-2 py-3 border-b border-purple-900/20 align-middle text-purple-200">
-                          <span className="history-policy" title={r.claim.policyNumber}>
-                            {r.claim.policyNumber}
-                          </span>
-                        </td>
-                        <td data-label="Type" className="px-2 py-3 border-b border-purple-900/20 align-middle text-purple-200">
-                          {r.claim.claimType}
-                        </td>
-                        <td data-label="Amount" className="px-2 py-3 border-b border-purple-900/20 align-middle text-right tabular-nums text-purple-200 whitespace-nowrap">
-                          {formatINR(r.claim.claimAmountINR)}
-                        </td>
-                        <td data-label="Outcome" className="px-2 py-3 border-b border-purple-900/20 align-middle">
-                          <OutcomeBadge summary={summary} />
-                        </td>
-                        <td data-label="Evidence" className="px-2 py-3 border-b border-purple-900/20 align-middle text-purple-200">
-                          <span className="history-evidence" title={evidenceSummary}>
-                            {evidenceSummary}
-                          </span>
-                        </td>
-                        <td data-label="Checks" className="px-2 py-3 border-b border-purple-900/20 align-middle text-purple-200">
-                          {summary.key === "unavailable" ? (
-                            "Not available"
-                          ) : (
-                            <div className="history-checks">
-                              <span className="whitespace-nowrap">{finishedChecks}/{CHECK_ORDER.length} completed</span>
-                              {forensicsSkipped && (
-                                <span className="history-check-detail">
-                                  Image forensics skipped · no photos
-                                </span>
-                              )}
-                            </div>
-                          )}
-                          {hasMore && (
-                            <div className="mt-5 flex justify-center">
-                              <button
-                                type="button"
-                                className="rounded-xl border border-purple-700/40 bg-purple-950/30 px-5 py-2.5 text-sm font-semibold text-purple-100 transition-colors hover:bg-purple-900/40 disabled:cursor-wait disabled:opacity-60"
-                                onClick={onLoadMore}
-                                disabled={isLoadingMore}
-                              >
-                                {isLoadingMore ? "Loading…" : "Load more claims"}
-                              </button>
-                            </div>
-                          )}
-                        </td>
-                        <td data-label="Actions" className="px-2 py-3 border-b border-purple-900/20 align-middle text-right">
-                          <button
-                            type="button"
-                            className="px-1.5 py-2 bg-emerald-500/10 text-emerald-200 border border-emerald-400/30 rounded-lg text-[10px] font-semibold hover:bg-emerald-500/20 hover:border-emerald-300/50 transition-all whitespace-nowrap"
-                            onClick={() => navigate(`/results/${encodeURIComponent(r.id)}`)}
-                          >
-                            View results
-                          </button>
-                        </td>
+              <>
+                <div className="w-full overflow-hidden border border-purple-700/30 rounded-xl">
+                  <table className="history-table w-full border-collapse text-sm">
+                    {!isClaimant && (
+                      <colgroup>
+                        <col style={{ width: "8%" }} />
+                        <col style={{ width: "23%" }} />
+                        <col style={{ width: "10%" }} />
+                        <col style={{ width: "6%" }} />
+                        <col style={{ width: "8%" }} />
+                        <col style={{ width: "14%" }} />
+                        <col style={{ width: "10%" }} />
+                        <col style={{ width: "12%" }} />
+                        <col style={{ width: "9%" }} />
+                      </colgroup>
+                    )}
+                    <thead>
+                      <tr>
+                        <th className="text-left text-[10.5px] font-bold tracking-wider uppercase text-[#f5f0e8] bg-purple-950/40 px-3 py-3 border-b border-purple-800/30 whitespace-nowrap rounded-tl-xl">
+                          Submitted
+                        </th>
+                        <th className="text-left text-[10.5px] font-bold tracking-wider uppercase text-[#f5f0e8] bg-purple-950/40 px-3 py-3 border-b border-purple-800/30 whitespace-nowrap">
+                          Claim ID
+                        </th>
+                        <th className="text-left text-[10.5px] font-bold tracking-wider uppercase text-[#f5f0e8] bg-purple-950/40 px-3 py-3 border-b border-purple-800/30 whitespace-nowrap">
+                          Policy
+                        </th>
+                        <th className="text-left text-[10.5px] font-bold tracking-wider uppercase text-[#f5f0e8] bg-purple-950/40 px-3 py-3 border-b border-purple-800/30 whitespace-nowrap">
+                          Type
+                        </th>
+                        <th className="text-right text-[10.5px] font-bold tracking-wider uppercase text-[#f5f0e8] bg-purple-950/40 px-3 py-3 border-b border-purple-800/30 whitespace-nowrap">
+                          Amount
+                        </th>
+                        <th className={`text-left text-[10.5px] font-bold tracking-wider uppercase text-[#f5f0e8] bg-purple-950/40 px-3 py-3 border-b border-purple-800/30 whitespace-nowrap ${isClaimant ? "rounded-tr-xl" : ""}`}>
+                          {isClaimant ? "Status" : "Outcome"}
+                        </th>
+                        {!isClaimant && (
+                          <>
+                            <th className="text-left text-[10.5px] font-bold tracking-wider uppercase text-[#f5f0e8] bg-purple-950/40 px-2 py-3 border-b border-purple-800/30 whitespace-nowrap">
+                              Evidence
+                            </th>
+                            <th className="text-left text-[10.5px] font-bold tracking-wider uppercase text-[#f5f0e8] bg-purple-950/40 px-2 py-3 border-b border-purple-800/30 whitespace-nowrap">
+                              Checks
+                            </th>
+                            <th className="text-right text-[10.5px] font-bold tracking-wider uppercase text-[#f5f0e8] bg-purple-950/40 px-2 py-3 border-b border-purple-800/30 whitespace-nowrap rounded-tr-xl">
+                              <span className="sr-only">Actions</span>
+                            </th>
+                          </>
+                        )}
                       </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {filteredRecords.map((r) => {
+                        const screeningChecks = normalizeSkippedForensics(r);
+                        const summary = summarizeRecord(r);
+                        const evidenceFiles = Array.isArray(r.documents) ? r.documents : [];
+                        const imageCount = evidenceFiles.filter((file) =>
+                          ["image/jpeg", "image/png"].includes(file.type) ||
+                          /\.(jpe?g|png)$/i.test(file.name || "")
+                        ).length;
+                        const pdfCount = evidenceFiles.filter((file) =>
+                          file.type === "application/pdf" || /\.pdf$/i.test(file.name || "")
+                        ).length;
+                        const evidenceSummary = summary.key === "unavailable"
+                          ? "Not available"
+                          : evidenceFiles.length
+                            ? `${pdfCount} PDF · ${imageCount} photo${imageCount === 1 ? "" : "s"}`
+                            : "No files";
+                        const forensicsSkipped = summary.counts.skipped > 0;
+                        const finishedChecks = CHECK_ORDER.filter((key) => {
+                          const check = screeningChecks[key];
+                          if (!["done", "error"].includes(check?.status)) return false;
+                          return !(key === "forensics" && forensicsSkipped);
+                        }).length;
+
+                        const isProcessing =
+                          r.screeningStatus === "RUNNING" || summary.key === "progress";
+
+                        return (
+                          <tr
+                            key={r.id}
+                            className="hover:bg-purple-950/20 transition-colors"
+                          >
+                            <td data-label="Submitted" className="px-3 py-3 border-b border-purple-900/20 align-middle text-purple-200">
+                              {formatDateTime(r.submittedAt)}
+                            </td>
+                            <td data-label="Claim ID" className="claim-id-cell px-3 py-3 border-b border-purple-900/20 align-middle">
+                              <div className="claim-id-content">
+                                <code className="claim-id-code px-2 py-1 bg-purple-950 rounded text-xs text-purple-200 border border-purple-800" title={r.id}>
+                                  {r.id}
+                                </code>
+                                <button
+                                  type="button"
+                                  className="p-2 text-purple-300 border border-purple-700/40 rounded-lg hover:text-white hover:bg-purple-800/40 transition-colors"
+                                  aria-label={`Copy claim ID ${r.id}`}
+                                  title="Copy claim ID"
+                                  onClick={() => copyClaimId(r.id)}
+                                >
+                                  <Icon name="copy" size={14} />
+                                </button>
+                              </div>
+                            </td>
+                            <td data-label="Policy" className="px-3 py-3 border-b border-purple-900/20 align-middle text-purple-200">
+                              {r.claim.claimantName && (
+                                <div className="font-semibold text-white text-xs truncate" title={r.claim.claimantName}>
+                                  {r.claim.claimantName}
+                                </div>
+                              )}
+                              <span className="history-policy text-xs text-purple-300" title={r.claim.policyNumber}>
+                               {r.claim.policyNumber}
+                              </span>
+                            </td>
+                            <td data-label="Type" className="px-3 py-3 border-b border-purple-900/20 align-middle text-purple-200">
+                              {r.claim.claimType}
+                            </td>
+                            <td data-label="Amount" className="px-3 py-3 border-b border-purple-900/20 align-middle text-right tabular-nums text-purple-200 whitespace-nowrap">
+                              {formatINR(r.claim.claimAmountINR)}
+                            </td>
+                            <td data-label={isClaimant ? "Status" : "Outcome"} className="px-3 py-3 border-b border-purple-900/20 align-middle">
+                              {isClaimant ? (
+                                <span
+                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${
+                                    isProcessing
+                                      ? "bg-purple-500/10 text-purple-200 border-purple-500/30"
+                                      : "bg-emerald-500/10 text-emerald-200 border-emerald-500/30"
+                                  }`}
+                                >
+                                  <span
+                                    className={`w-1.5 h-1.5 rounded-full ${
+                                      isProcessing ? "bg-purple-400 animate-pulse" : "bg-emerald-400"
+                                    }`}
+                                  />
+                                  {isProcessing ? "Processing" : "Submitted"}
+                                </span>
+                              ) : (
+                                <OutcomeBadge summary={summary} />
+                              )}
+                            </td>
+                            {!isClaimant && (
+                              <>
+                                <td data-label="Evidence" className="px-2 py-3 border-b border-purple-900/20 align-middle text-purple-200">
+                                  <span className="history-evidence" title={evidenceSummary}>
+                                    {evidenceSummary}
+                                  </span>
+                                </td>
+                                <td data-label="Checks" className="px-2 py-3 border-b border-purple-900/20 align-middle text-purple-200">
+                                  {summary.key === "unavailable" ? (
+                                    "Not available"
+                                  ) : (
+                                    <div className="history-checks">
+                                      <span className="whitespace-nowrap">{finishedChecks}/{CHECK_ORDER.length} completed</span>
+                                      {forensicsSkipped && (
+                                        <span className="history-check-detail">
+                                          Image forensics skipped · no photos
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                </td>
+                                <td data-label="Actions" className="px-2 py-3 border-b border-purple-900/20 align-middle text-right">
+                                  <button
+                                    type="button"
+                                    className="px-1.5 py-2 bg-emerald-500/10 text-emerald-200 border border-emerald-400/30 rounded-lg text-[10px] font-semibold hover:bg-emerald-500/20 hover:border-emerald-300/50 transition-all whitespace-nowrap"
+                                    onClick={() => navigate(`/results/${encodeURIComponent(r.id)}`)}
+                                  >
+                                    View results
+                                  </button>
+                                </td>
+                              </>
+                            )}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {hasMore && (
+                  <div className="mt-5 flex justify-center">
+                    <button
+                      type="button"
+                      className="rounded-xl border border-purple-700/40 bg-purple-950/30 px-5 py-2.5 text-sm font-semibold text-purple-100 transition-colors hover:bg-purple-900/40 disabled:cursor-wait disabled:opacity-60"
+                      onClick={onLoadMore}
+                      disabled={isLoadingMore}
+                    >
+                      {isLoadingMore ? "Loading…" : "Load more claims"}
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </>
         )}

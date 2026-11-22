@@ -1,11 +1,10 @@
-
 import json
 import os
+import re
 from datetime import date
 from decimal import Decimal
 
 import boto3
-from boto3.dynamodb.conditions import Key
 
 REGION = os.environ.get("AWS_REGION", "ap-southeast-2")
 TABLE_NAME = os.environ["POLICIES_TABLE"]
@@ -35,6 +34,10 @@ def parse_date(value):
     return date.fromisoformat(value)
 
 
+def normalize_name(value):
+    return re.sub(r"\s+", " ", str(value or "").strip()).casefold()
+
+
 def lambda_handler(event, context):
     if event.get("httpMethod") == "OPTIONS":
         return response(200, {"message": "CORS preflight successful"})
@@ -61,6 +64,7 @@ def lambda_handler(event, context):
 
         policy_number = str(body["policyNumber"]).strip()
         claim_type = str(body["claimType"]).strip()
+        submitted_name = str(body.get("claimantName") or "").strip()
         incident_date = parse_date(str(body["incidentDate"]))
         claim_amount = Decimal(str(body["claimAmountINR"]))
 
@@ -86,6 +90,7 @@ def lambda_handler(event, context):
                 "checks": {
                     "policyExists": False,
                     "policyStatus": "NOT_CHECKED",
+                    "policyHolderName": "NOT_CHECKED",
                     "coverageDates": "NOT_CHECKED",
                     "claimType": "NOT_CHECKED",
                     "coverageLimit": "NOT_CHECKED",
@@ -94,9 +99,11 @@ def lambda_handler(event, context):
             })
 
         flags = []
+        recorded_holder = str(policy.get("policyHolderName") or "").strip()
         checks = {
             "policyExists": True,
             "policyStatus": "NOT_CHECKED",
+            "policyHolderName": "NOT_CHECKED",
             "coverageDates": "NOT_CHECKED",
             "claimType": "NOT_CHECKED",
             "coverageLimit": "NOT_CHECKED",
@@ -113,7 +120,22 @@ def lambda_handler(event, context):
                 "message": f"Recorded policy status is '{status or 'UNKNOWN'}'."
             })
 
-        # 2. Coverage dates
+        # 2. Policyholder name match
+        if not recorded_holder or not submitted_name:
+            checks["policyHolderName"] = "UNVERIFIABLE"
+        elif normalize_name(recorded_holder) == normalize_name(submitted_name):
+            checks["policyHolderName"] = "PASS"
+        else:
+            checks["policyHolderName"] = "FLAG"
+            flags.append({
+                "code": "POLICYHOLDER_NAME_MISMATCH",
+                "message": (
+                    f"Submitted claimant name ('{submitted_name}') does not match "
+                    f"the recorded policyholder ('{recorded_holder}')."
+                ),
+            })
+
+        # 3. Coverage dates
         try:
             start = parse_date(str(policy["coverageStart"]))
             end = parse_date(str(policy["coverageEnd"]))
@@ -133,7 +155,7 @@ def lambda_handler(event, context):
                 "message": "Coverage dates are missing or invalid."
             })
 
-        # 3. Claim type
+        # 4. Claim type
         recorded_type = str(policy.get("claimType", "")).strip().casefold()
         submitted_type = claim_type.casefold()
 
@@ -146,7 +168,7 @@ def lambda_handler(event, context):
                 "message": "The submitted claim type does not match the recorded policy type."
             })
 
-        # 4. Recorded coverage limit
+        # 5. Recorded coverage limit
         try:
             limit = Decimal(str(policy["coverageLimitINR"]))
             if claim_amount <= limit:
@@ -164,11 +186,12 @@ def lambda_handler(event, context):
                 "message": "The coverage limit is missing or invalid."
             })
 
-        # Missing or invalid policy information should never count as a pass.
         needs_review = bool(flags)
 
         return response(200, {
             "policyNumber": policy_number,
+            "policyHolderName": recorded_holder or None,
+            "submittedClaimantName": submitted_name or None,
             "validationStatus": "REVIEW" if needs_review else "PASS",
             "checks": checks,
             "flags": flags,

@@ -1,0 +1,122 @@
+{
+  "Comment": "ClaimGuard screening pipeline",
+  "StartAt": "DuplicateCheck",
+  "States": {
+    "DuplicateCheck": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {"FunctionName": "${DuplicateCheckFunctionArn}", "Payload.$": "$.events.duplicate"},
+      "ResultSelector": {"statusCode.$": "$.Payload.statusCode", "body.$": "$.Payload.body"},
+      "ResultPath": "$.duplicate",
+      "Retry": [{"ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "Lambda.TooManyRequestsException"], "IntervalSeconds": 2, "MaxAttempts": 3, "BackoffRate": 2}],
+      "Next": "DuplicateSucceeded"
+    },
+    "DuplicateSucceeded": {
+      "Type": "Choice",
+      "Choices": [{"Variable": "$.duplicate.statusCode", "NumericEquals": 200, "Next": "RunChecks"}],
+      "Default": "DuplicateFailed"
+    },
+    "DuplicateFailed": {
+      "Type": "Fail",
+      "Error": "DuplicateCheckFailed",
+      "CausePath": "$.duplicate.body"
+    },
+    "RunChecks": {
+      "Type": "Parallel",
+      "ResultPath": "$.checks",
+      "Next": "Aggregate",
+      "Branches": [
+        {
+          "StartAt": "Policy",
+          "States": {
+            "Policy": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {"FunctionName": "${PolicyValidationFunctionArn}", "Payload.$": "$.events.policy"},
+              "ResultSelector": {"statusCode.$": "$.Payload.statusCode", "body.$": "$.Payload.body"},
+              "Retry": [{"ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "Lambda.TooManyRequestsException"], "IntervalSeconds": 2, "MaxAttempts": 3, "BackoffRate": 2}],
+              "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "PolicyUnavailable"}],
+              "End": true
+            },
+            "PolicyUnavailable": {"Type": "Pass", "Result": {"statusCode": 503, "body": "{}"}, "End": true}
+          }
+        },
+        {
+          "StartAt": "Outlier",
+          "States": {
+            "Outlier": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {"FunctionName": "${OutlierCheckFunctionArn}", "Payload.$": "$.events.outlier"},
+              "ResultSelector": {"statusCode.$": "$.Payload.statusCode", "body.$": "$.Payload.body"},
+              "Retry": [{"ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "Lambda.TooManyRequestsException"], "IntervalSeconds": 2, "MaxAttempts": 3, "BackoffRate": 2}],
+              "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "OutlierUnavailable"}],
+              "End": true
+            },
+            "OutlierUnavailable": {"Type": "Pass", "Result": {"statusCode": 503, "body": "{}"}, "End": true}
+          }
+        },
+        {
+          "StartAt": "ForensicsNeeded",
+          "States": {
+            "ForensicsNeeded": {
+              "Type": "Choice",
+              "Choices": [{"Variable": "$.skip.forensics", "BooleanEquals": true, "Next": "ForensicsSkipped"}],
+              "Default": "Forensics"
+            },
+            "ForensicsSkipped": {"Type": "Pass", "Result": {"skipped": true}, "End": true},
+            "Forensics": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "TimeoutSeconds": 330,
+              "Parameters": {"FunctionName": "${ImageForensicsFunctionArn}", "Payload.$": "$.events.forensics"},
+              "ResultSelector": {"statusCode.$": "$.Payload.statusCode", "body.$": "$.Payload.body"},
+              "Retry": [
+                {"ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "Lambda.TooManyRequestsException"], "IntervalSeconds": 2, "MaxAttempts": 3, "BackoffRate": 2},
+                {"ErrorEquals": ["States.TaskFailed"], "IntervalSeconds": 5, "MaxAttempts": 1, "BackoffRate": 2}
+              ],
+              "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "ForensicsUnavailable"}],
+              "End": true
+            },
+            "ForensicsUnavailable": {"Type": "Pass", "Result": {"statusCode": 503, "body": "{}"}, "End": true}
+          }
+        },
+        {
+          "StartAt": "EvidenceNeeded",
+          "States": {
+            "EvidenceNeeded": {
+              "Type": "Choice",
+              "Choices": [{"Variable": "$.skip.evidence", "BooleanEquals": true, "Next": "EvidenceSkipped"}],
+              "Default": "Evidence"
+            },
+            "EvidenceSkipped": {"Type": "Pass", "Result": {"skipped": true}, "End": true},
+            "Evidence": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {"FunctionName": "${EvidenceRelevanceFunctionArn}", "Payload.$": "$.events.evidence"},
+              "ResultSelector": {"statusCode.$": "$.Payload.statusCode", "body.$": "$.Payload.body"},
+              "Retry": [{"ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "Lambda.TooManyRequestsException"], "IntervalSeconds": 2, "MaxAttempts": 3, "BackoffRate": 2}],
+              "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "EvidenceUnavailable"}],
+              "End": true
+            },
+            "EvidenceUnavailable": {"Type": "Pass", "Result": {"statusCode": 503, "body": "{}"}, "End": true}
+          }
+        }
+      ]
+    },
+    "Aggregate": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${AggregateResultsFunctionArn}",
+        "Payload": {"claimId.$": "$.claimId", "userId.$": "$.userId", "duplicate.$": "$.duplicate", "checks.$": "$.checks"}
+      },
+      "ResultPath": null,
+      "Retry": [
+        {"ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "Lambda.TooManyRequestsException"], "IntervalSeconds": 2, "MaxAttempts": 3, "BackoffRate": 2},
+        {"ErrorEquals": ["States.TaskFailed"], "IntervalSeconds": 3, "MaxAttempts": 2, "BackoffRate": 2}
+      ],
+      "End": true
+    }
+  }
+}
