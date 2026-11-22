@@ -206,19 +206,19 @@ export default function HistoryPage({
   return (
     <>
       <PageHeader
-        eyebrow="CLAIM HISTORY"
-        title={isClaimant ? "My claims" : "Claim history"}
+        eyebrow={isClaimant ? "MY SUBMISSIONS" : "ADJUSTER WORKSPACE"}
+        title={isClaimant ? "My claims" : "Claims"}
         description={
           isClaimant
-            ? "Track your submitted claims and submission details."
-            : "Claims, screening status, and fraud signals available for adjuster review."
+            ? "Track your submitted claims and inspect uploaded documents."
+            : "Active screening queue and fraud indicators for adjuster review."
         }
       />
 
       <Callout tone="info">
         <strong className="font-semibold">Authenticated history.</strong>{" "}
         {isClaimant
-          ? "Your submitted claims are synced with your account."
+          ? "Your submitted claims and uploaded files are synced with your account."
           : "Claims are loaded from your account; search, outcome, and sort preferences persist in this browser."}
       </Callout>
 
@@ -347,22 +347,20 @@ export default function HistoryPage({
                         <th className="text-right text-[10.5px] font-bold tracking-wider uppercase text-[#f5f0e8] bg-purple-950/40 px-3 py-3 border-b border-purple-800/30 whitespace-nowrap">
                           Amount
                         </th>
-                        <th className={`text-left text-[10.5px] font-bold tracking-wider uppercase text-[#f5f0e8] bg-purple-950/40 px-3 py-3 border-b border-purple-800/30 whitespace-nowrap ${isClaimant ? "rounded-tr-xl" : ""}`}>
+                        <th className="text-left text-[10.5px] font-bold tracking-wider uppercase text-[#f5f0e8] bg-purple-950/40 px-3 py-3 border-b border-purple-800/30 whitespace-nowrap">
                           {isClaimant ? "Status" : "Outcome"}
                         </th>
+                        <th className="text-left text-[10.5px] font-bold tracking-wider uppercase text-[#f5f0e8] bg-purple-950/40 px-2 py-3 border-b border-purple-800/30 whitespace-nowrap">
+                          Evidence
+                        </th>
                         {!isClaimant && (
-                          <>
-                            <th className="text-left text-[10.5px] font-bold tracking-wider uppercase text-[#f5f0e8] bg-purple-950/40 px-2 py-3 border-b border-purple-800/30 whitespace-nowrap">
-                              Evidence
-                            </th>
-                            <th className="text-left text-[10.5px] font-bold tracking-wider uppercase text-[#f5f0e8] bg-purple-950/40 px-2 py-3 border-b border-purple-800/30 whitespace-nowrap">
-                              Checks
-                            </th>
-                            <th className="text-right text-[10.5px] font-bold tracking-wider uppercase text-[#f5f0e8] bg-purple-950/40 px-2 py-3 border-b border-purple-800/30 whitespace-nowrap rounded-tr-xl">
-                              <span className="sr-only">Actions</span>
-                            </th>
-                          </>
+                          <th className="text-left text-[10.5px] font-bold tracking-wider uppercase text-[#f5f0e8] bg-purple-950/40 px-2 py-3 border-b border-purple-800/30 whitespace-nowrap">
+                            Checks
+                          </th>
                         )}
+                        <th className="text-right text-[10.5px] font-bold tracking-wider uppercase text-[#f5f0e8] bg-purple-950/40 px-2 py-3 border-b border-purple-800/30 whitespace-nowrap rounded-tr-xl">
+                          <span className="sr-only">Actions</span>
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -377,11 +375,12 @@ export default function HistoryPage({
                         const pdfCount = evidenceFiles.filter((file) =>
                           file.type === "application/pdf" || /\.pdf$/i.test(file.name || "")
                         ).length;
-                        const evidenceSummary = summary.key === "unavailable"
-                          ? "Not available"
-                          : evidenceFiles.length
-                            ? `${pdfCount} PDF · ${imageCount} photo${imageCount === 1 ? "" : "s"}`
-                            : "No files";
+                        const evidenceSummary =
+                          !isClaimant && summary.key === "unavailable"
+                            ? "Not available"
+                            : evidenceFiles.length
+                              ? `${pdfCount} PDF · ${imageCount} photo${imageCount === 1 ? "" : "s"}`
+                              : "No files";
                         const forensicsSkipped = summary.counts.skipped > 0;
                         const finishedChecks = CHECK_ORDER.filter((key) => {
                           const check = screeningChecks[key];
@@ -423,7 +422,7 @@ export default function HistoryPage({
                                 </div>
                               )}
                               <span className="history-policy text-xs text-purple-300" title={r.claim.policyNumber}>
-                               {r.claim.policyNumber}
+                                {r.claim.policyNumber}
                               </span>
                             </td>
                             <td data-label="Type" className="px-3 py-3 border-b border-purple-900/20 align-middle text-purple-200">
@@ -452,38 +451,40 @@ export default function HistoryPage({
                                 <OutcomeBadge summary={summary} />
                               )}
                             </td>
+                            <td data-label="Evidence" className="px-2 py-3 border-b border-purple-900/20 align-middle text-purple-200">
+                              <span className="history-evidence" title={evidenceSummary}>
+                                {evidenceSummary}
+                              </span>
+                            </td>
                             {!isClaimant && (
-                              <>
-                                <td data-label="Evidence" className="px-2 py-3 border-b border-purple-900/20 align-middle text-purple-200">
-                                  <span className="history-evidence" title={evidenceSummary}>
-                                    {evidenceSummary}
-                                  </span>
-                                </td>
-                                <td data-label="Checks" className="px-2 py-3 border-b border-purple-900/20 align-middle text-purple-200">
-                                  {summary.key === "unavailable" ? (
-                                    "Not available"
-                                  ) : (
-                                    <div className="history-checks">
-                                      <span className="whitespace-nowrap">{finishedChecks}/{CHECK_ORDER.length} completed</span>
-                                      {forensicsSkipped && (
-                                        <span className="history-check-detail">
-                                          Image forensics skipped · no photos
-                                        </span>
-                                      )}
-                                    </div>
-                                  )}
-                                </td>
-                                <td data-label="Actions" className="px-2 py-3 border-b border-purple-900/20 align-middle text-right">
-                                  <button
-                                    type="button"
-                                    className="px-1.5 py-2 bg-emerald-500/10 text-emerald-200 border border-emerald-400/30 rounded-lg text-[10px] font-semibold hover:bg-emerald-500/20 hover:border-emerald-300/50 transition-all whitespace-nowrap"
-                                    onClick={() => navigate(`/results/${encodeURIComponent(r.id)}`)}
-                                  >
-                                    View results
-                                  </button>
-                                </td>
-                              </>
+                              <td data-label="Checks" className="px-2 py-3 border-b border-purple-900/20 align-middle text-purple-200">
+                                {summary.key === "unavailable" ? (
+                                  "Not available"
+                                ) : (
+                                  <div className="history-checks">
+                                    <span className="whitespace-nowrap">{finishedChecks}/{CHECK_ORDER.length} completed</span>
+                                    {forensicsSkipped && (
+                                      <span className="history-check-detail">
+                                        Image forensics skipped · no photos
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </td>
                             )}
+                            <td data-label="Actions" className="px-2 py-3 border-b border-purple-900/20 align-middle text-right">
+                              <button
+                                type="button"
+                                className={`px-2.5 py-2 rounded-lg text-[11px] font-semibold transition-all whitespace-nowrap border ${
+                                  isClaimant
+                                    ? "bg-purple-800/50 text-purple-100 border-purple-600/40 hover:bg-purple-700/60 hover:text-white"
+                                    : "px-1.5 bg-emerald-500/10 text-emerald-200 border-emerald-400/30 text-[10px] hover:bg-emerald-500/20 hover:border-emerald-300/50"
+                                }`}
+                                onClick={() => navigate(`/results/${encodeURIComponent(r.id)}`)}
+                              >
+                                {isClaimant ? "View submission" : "View results"}
+                              </button>
+                            </td>
                           </tr>
                         );
                       })}

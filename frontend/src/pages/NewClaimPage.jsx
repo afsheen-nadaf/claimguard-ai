@@ -16,7 +16,7 @@ export default function NewClaimPage({ draft, onScreeningReady, navigate }) {
     draft.submit((payload) => {
       toast.success("Claim submitted! Your claim is now being processed.");
       onScreeningReady(payload);
-      navigate("/history");
+      navigate(`/results/${encodeURIComponent(payload.claimId)}`);
     });
   }
 

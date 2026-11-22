@@ -68,7 +68,7 @@ export default function ResultsPage({ record, onRetry, navigate }) {
                 className="px-5 py-2.5 bg-[#251d33] text-purple-100 border border-purple-700/30 rounded-xl font-semibold hover:bg-[#2d2440] transition-all"
                 onClick={() => navigate("/history")}
               >
-                Back to claim history
+                Back to claims
               </button>
             }
           >

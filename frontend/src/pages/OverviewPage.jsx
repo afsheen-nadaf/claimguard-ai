@@ -91,7 +91,7 @@ export default function OverviewPage({ records, navigate }) {
           </p>
           <div className="hero-actions">
             <button type="button" className="btn btn-primary btn-lg" onClick={() => navigate("/history")}>
-              <Icon name="history" size={18} /> Review Claim History
+              <Icon name="history" size={18} /> Review Claims
             </button>
             <button type="button" className="btn btn-secondary btn-lg" onClick={() => navigate("/analytics")}>
               <Icon name="chart" size={18} /> View Analytics
@@ -232,7 +232,7 @@ export default function OverviewPage({ records, navigate }) {
             <EmptyState
               icon="history"
               title="No claims in queue yet"
-              action={<button type="button" className="btn btn-secondary" onClick={() => navigate("/history")}>Open claim history</button>}
+              action={<button type="button" className="btn btn-secondary" onClick={() => navigate("/history")}>Open claims</button>}
             >
               Submitted claims will show up here with their screening outcome.
             </EmptyState>

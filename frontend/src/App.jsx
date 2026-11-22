@@ -6,6 +6,7 @@ import { useClaimDraft } from "./hooks/useClaimDraft";
 import { useRoute } from "./hooks/useRoute";
 import { useScreenings } from "./hooks/useScreenings";
 import AnalyticsPage from "./pages/AnalyticsPage";
+import ClaimantSubmissionPage from "./pages/ClaimantSubmissionPage";
 import HistoryPage from "./pages/HistoryPage";
 import HowItWorksPage from "./pages/HowItWorksPage";
 import NewClaimPage from "./pages/NewClaimPage";
@@ -51,7 +52,7 @@ function AuthenticatedApp({ auth }) {
   const lookupInProgress = useRef(new Set());
 
   const isClaimantRouteBlocked =
-    role === "claimant" && !["new", "history", "how"].includes(route.name);
+    role === "claimant" && !["new", "history", "how", "results"].includes(route.name);
   const isAdjusterRouteBlocked =
     role === "adjuster" && ["new", "how"].includes(route.name);
 
@@ -101,14 +102,21 @@ function AuthenticatedApp({ auth }) {
       break;
     case "results":
       page = !resultRecord && (loadingClaimId === route.params.id || isHistoryLoading)
-        ? <p className="text-purple-200" role="status">Loading claim results…</p>
-        : (
-          <ResultsPage
-            record={resultRecord}
-            onRetry={retry}
-            navigate={navigate}
-          />
-        );
+        ? <p className="text-purple-200 p-8" role="status">Loading claim details…</p>
+        : role === "claimant"
+          ? (
+            <ClaimantSubmissionPage
+              record={resultRecord}
+              navigate={navigate}
+            />
+          )
+          : (
+            <ResultsPage
+              record={resultRecord}
+              onRetry={retry}
+              navigate={navigate}
+            />
+          );
       break;
     case "history":
       page = (
