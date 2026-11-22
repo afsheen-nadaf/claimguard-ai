@@ -56,6 +56,14 @@ class TestEvidenceRelevanceApi(unittest.TestCase):
         os.environ["CLAIM_PACKETS_BUCKET"] = "test-claim-packets-bucket"
 
     def setUp(self):
+        identity_patcher = patch.object(
+            app,
+            "identity_from_event",
+            return_value={"userId": "adjuster-1", "groups": ["adjuster"]},
+        )
+        identity_patcher.start()
+        self.addCleanup(identity_patcher.stop)
+
         self.claim_id = "CLAIM-123"
         self.valid_key_1 = f"incoming/{self.claim_id}/rear_bumper.jpg"
         self.valid_key_2 = f"incoming/{self.claim_id}/tailgate.jpg"
@@ -69,6 +77,14 @@ class TestEvidenceRelevanceApi(unittest.TestCase):
 
         self.valid_event = {
             "httpMethod": "POST",
+            "requestContext": {
+                "authorizer": {
+                    "claims": {
+                        "sub": "adjuster-1",
+                        "cognito:groups": ["adjuster"],
+                    }
+                }
+            },
             "body": json.dumps({
                 "claimId": self.claim_id,
                 "claimType": "Auto",

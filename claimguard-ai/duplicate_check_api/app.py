@@ -10,6 +10,13 @@ import imagehash
 from PIL import Image, UnidentifiedImageError
 from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
+from claimguard_auth import (
+    forbidden_response,
+    identity_from_event,
+    is_adjuster,
+    response as auth_response,
+    unauthorized_response,
+)
 
 REGION = os.environ.get("AWS_REGION", "ap-southeast-2")
 REFERENCE_TABLE_NAME = os.environ["REFERENCE_CLAIMS_TABLE"]
@@ -24,7 +31,7 @@ reference_table = dynamodb.Table(REFERENCE_TABLE_NAME)
 operational_table = dynamodb.Table(OPERATIONAL_TABLE_NAME)
 image_hashes_table = dynamodb.Table(IMAGE_HASHES_TABLE_NAME)
 
-ALLOWED_ORIGIN = "http://localhost:5173"
+ALLOWED_ORIGIN = os.environ.get("CORS_ORIGIN")
 INDEX_NAME = "PolicyNumberIncidentDateIndex"
 MAX_IMAGES_PER_CLAIM = 3
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
@@ -32,16 +39,17 @@ PHASH_DISTANCE_THRESHOLD = 8
 
 
 def response(status_code, body):
-    return {
-        "statusCode": status_code,
-        "headers": {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
-            "Access-Control-Allow-Methods": "OPTIONS,POST",
-            "Access-Control-Allow-Headers": "Content-Type",
-        },
-        "body": json.dumps(body, default=str),
-    }
+    return auth_response(status_code, body, ALLOWED_ORIGIN)
+
+
+def verify_image_ownership(claim_id, image_keys, user_id):
+    expected_prefix = f"incoming/{claim_id}/"
+    for key in image_keys:
+        if not key.startswith(expected_prefix):
+            raise ValueError("Each image must belong to this claim.")
+        metadata = s3.head_object(Bucket=BUCKET_NAME, Key=key).get("Metadata", {})
+        if metadata.get("userid") != user_id:
+            raise PermissionError("An uploaded image is not owned by this user.")
 
 
 def find_amount_matches(table, policy_number, incident_date, claim_amount):
@@ -109,7 +117,6 @@ def validate_image_keys(image_keys):
         raise ValueError("imageKeys must not contain duplicate entries.")
 
     for key in image_keys:
-
         if ".." in key.split("/") or len(key) > 1024:
             raise ValueError("An image key is invalid.")
 
@@ -198,19 +205,19 @@ def process_claim_images(claim_id, image_keys):
                 continue
 
             try:
-                distance = new_hash - imagehash.hex_to_hash(old_phash)
+                # Cast numpy.int64 from imagehash subtraction to native Python int
+                distance = int(new_hash - imagehash.hex_to_hash(old_phash))
             except (ValueError, TypeError):
                 continue
 
             if distance <= PHASH_DISTANCE_THRESHOLD:
+                similarity = Decimal(str(round((64 - distance) / 64 * 100, 2)))
                 matches.append({
                     "claimId": old_claim_id,
                     "matchedImageId": old_image.get("imageId"),
                     "uploadedImageKey": new_image["s3Key"],
                     "hammingDistance": distance,
-                    "similarityPercent": round(
-                        (64 - distance) / 64 * 100, 2
-                    ),
+                    "similarityPercent": similarity,
                     "source": "IMAGE_HASH",
                 })
 
@@ -228,6 +235,12 @@ def process_claim_images(claim_id, image_keys):
 def lambda_handler(event, context):
     if event.get("httpMethod") == "OPTIONS":
         return response(200, {"message": "CORS preflight successful"})
+
+    identity = identity_from_event(event)
+    if identity is None:
+        return unauthorized_response()
+    if is_adjuster(identity):
+        return forbidden_response()
 
     try:
         body = json.loads(event.get("body") or "{}")
@@ -256,6 +269,7 @@ def lambda_handler(event, context):
         incident_date = str(body["incidentDate"])
         claim_amount = Decimal(str(body["claimAmountINR"]))
         image_keys = validate_image_keys(body.get("imageKeys", []))
+        verify_image_ownership(claim_id, image_keys, identity["userId"])
 
         if not claim_id or not policy_number:
             return response(400, {
@@ -275,6 +289,8 @@ def lambda_handler(event, context):
         ).get("Item")
 
         if existing_operational:
+            if existing_operational.get("userId") != identity["userId"]:
+                return forbidden_response()
             same_details = (
                 existing_operational.get("policyNumber") == policy_number
                 and existing_operational.get("incidentDate") == incident_date
@@ -288,13 +304,15 @@ def lambda_handler(event, context):
                 image_matches = process_claim_images(claim_id, image_keys)
                 return response(200, {
                     "duplicateStatus": "ALREADY_REGISTERED",
-                    "matchType": None,
+                    "matchType": existing_operational.get("matchType"),
                     "message": "This claim ID is already registered. No second claim record was created.",
                     "registeredClaimId": claim_id,
                     "originalDuplicateStatus": existing_operational.get(
                         "duplicateStatus"
                     ),
-                    "imageMatches": image_matches,
+                    "matchCount": int(existing_operational.get("duplicateMatchCount", 0)),
+                    "imageMatchCount": int(existing_operational.get("duplicateImageMatchCount", 0)),
+                    "imageMatches": [],
                     "imageMatchStatus": "REVIEW" if image_matches else "NO_MATCH",
                     "note": "Image matches are review signals, not proof of fraud.",
                 })
@@ -349,11 +367,19 @@ def lambda_handler(event, context):
         # Register the submission, including review-worthy claims.
         record = {
             "claimId": claim_id,
+            "userId": identity["userId"],
+            "claimantName": str(body.get("claimantName", "")).strip(),
             "policyNumber": policy_number,
+            "claimType": str(body.get("claimType", "")).strip(),
             "incidentDate": incident_date,
             "claimAmountINR": claim_amount,
+            "screeningStatus": "RUNNING",
             "duplicateStatus": duplicate_status,
             "matchType": match_type or "NONE",
+            "duplicateMatches": matches[:10],
+            "duplicateMatchCount": int(len(matches)),
+            "duplicateImageMatches": image_matches[:10],
+            "duplicateImageMatchCount": int(len(image_matches)),
             "createdAt": datetime.now(timezone.utc).isoformat(),
         }
 
@@ -380,8 +406,10 @@ def lambda_handler(event, context):
                 if matches or image_matches
                 else "No configured duplicate match found. Claim registered."
             ),
-            "matches": matches,
-            "imageMatches": image_matches,
+            "matches": [],
+            "matchCount": int(len(matches)),
+            "imageMatches": [],
+            "imageMatchCount": int(len(image_matches)),
             "imageMatchStatus": "REVIEW" if image_matches else "NO_MATCH",
             "registeredClaimId": claim_id,
             "note": "A matching record is a review signal, not proof of fraud.",
@@ -396,6 +424,9 @@ def lambda_handler(event, context):
         return response(400, {
             "error": str(error)
         })
+
+    except PermissionError:
+        return forbidden_response()
 
     except InvalidOperation:
         return response(400, {

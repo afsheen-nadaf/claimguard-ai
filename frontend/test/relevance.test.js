@@ -1,7 +1,26 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { interpretRelevance } from "../src/lib/screening.js";
-import { validateEvidenceRelevance } from "../src/api/claims.js";
+
+globalThis.process.env.VITE_API_BASE = "https://api.example.test";
+
+const sessionData = new Map([
+  [
+    "claimguard.auth.session",
+    JSON.stringify({
+      idToken: "test-id-token",
+      user: { id: "test-user" },
+      expiresAt: Date.now() + 300_000,
+    }),
+  ],
+]);
+globalThis.sessionStorage = {
+  getItem: (key) => sessionData.get(key) || null,
+  setItem: (key, value) => sessionData.set(key, value),
+  removeItem: (key) => sessionData.delete(key),
+};
+
+const { interpretEvidence } = await import("../src/lib/screening.js");
+const { validateEvidence } = await import("../src/api/claims.js");
 
 describe("Evidence Relevance Helpers", () => {
   it("interprets RELEVANT response as pass without requiring review", () => {
@@ -30,12 +49,12 @@ describe("Evidence Relevance Helpers", () => {
       ],
     };
 
-    const interpreted = interpretRelevance(raw);
+    const interpreted = interpretEvidence(raw);
     assert.equal(interpreted.state, "pass");
-    assert.equal(interpreted.kind, "completed");
+    assert.equal(interpreted.kind, "relevant");
     assert.equal(interpreted.overallVerdict, "RELEVANT");
     assert.equal(interpreted.requiresReview, false);
-    assert.match(interpreted.label, /2 items relevant/);
+    assert.match(interpreted.label, /All 2 evidence items assessed as relevant/);
   });
 
   it("interprets POTENTIAL_MISMATCH as review required", () => {
@@ -56,12 +75,12 @@ describe("Evidence Relevance Helpers", () => {
       ],
     };
 
-    const interpreted = interpretRelevance(raw);
+    const interpreted = interpretEvidence(raw);
     assert.equal(interpreted.state, "review");
-    assert.equal(interpreted.kind, "review");
+    assert.equal(interpreted.kind, "mismatch");
     assert.equal(interpreted.overallVerdict, "POTENTIAL_MISMATCH");
     assert.equal(interpreted.requiresReview, true);
-    assert.match(interpreted.label, /Potential mismatch/);
+    assert.match(interpreted.label, /Evidence mismatch detected/);
   });
 
   it("interprets UNCERTAIN or PARTIAL response as review required", () => {
@@ -84,7 +103,7 @@ describe("Evidence Relevance Helpers", () => {
       ],
     };
 
-    const interpreted = interpretRelevance(raw);
+    const interpreted = interpretEvidence(raw);
     assert.equal(interpreted.state, "review");
     assert.equal(interpreted.overallVerdict, "UNCERTAIN");
     assert.equal(interpreted.requiresReview, true);
@@ -96,7 +115,7 @@ describe("Evidence Relevance Helpers", () => {
       message: "No evidence files submitted",
     };
 
-    const interpreted = interpretRelevance(raw);
+    const interpreted = interpretEvidence(raw);
     assert.equal(interpreted.state, "pass");
     assert.equal(interpreted.kind, "skipped");
     assert.equal(interpreted.requiresReview, false);
@@ -138,7 +157,7 @@ describe("Evidence Relevance Helpers", () => {
     };
 
     try {
-      await validateEvidenceRelevance(claimId, claim, documents);
+      await validateEvidence(claimId, claim, documents);
       assert.equal(capturedBody.claimId, claimId);
       assert.equal(capturedBody.claimType, "Auto");
       assert.equal(capturedBody.evidence.length, 2);

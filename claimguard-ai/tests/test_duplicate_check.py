@@ -128,6 +128,14 @@ def make_event(body):
     return {
         "httpMethod": "POST",
         "body": json.dumps(body),
+        "requestContext": {
+            "authorizer": {
+                "claims": {
+                    "sub": "claimant-1",
+                    "cognito:groups": ["claimant"],
+                }
+            }
+        },
     }
 
 
@@ -281,7 +289,8 @@ def test_amount_based_duplicate_detection_still_works(
     assert result["statusCode"] == 200
     assert body["duplicateStatus"] == "REVIEW"
     assert body["matchType"] == "POLICY_DATE_AMOUNT_MATCH"
-    assert body["matches"][0]["claimId"] == "REFERENCE-001"
+    assert body["matchCount"] == 1
+    assert body["matches"] == []
 
 
 def test_claim_with_four_images_returns_http_400(aws_environment):

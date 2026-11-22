@@ -6,6 +6,7 @@ from decimal import Decimal, InvalidOperation
 
 import boto3
 
+CORS_ORIGIN = os.environ.get("CORS_ORIGIN")
 
 dynamodb = boto3.resource("dynamodb")
 claims_table = dynamodb.Table(
@@ -18,14 +19,16 @@ IQR_MULTIPLIER = 1.5
 
 
 def response(status_code, body):
+    headers = {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Headers": "Content-Type,Authorization",
+        "Access-Control-Allow-Methods": "OPTIONS,POST",
+    }
+    if CORS_ORIGIN:
+        headers["Access-Control-Allow-Origin"] = CORS_ORIGIN
     return {
         "statusCode": status_code,
-        "headers": {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "http://localhost:5173",
-            "Access-Control-Allow-Headers": "Content-Type",
-            "Access-Control-Allow-Methods": "OPTIONS,POST",
-        },
+        "headers": headers,
         "body": json.dumps(body),
     }
 

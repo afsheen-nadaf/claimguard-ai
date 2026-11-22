@@ -1,95 +1,125 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import Icon from "./Icon";
 import { REGION } from "../api/config";
 
-const NAV = [
-  { id: "overview", href: "#/", label: "Overview", icon: "grid", crumb: "Overview" },
-  { id: "new", href: "#/new", label: "New Claim", icon: "filePlus", crumb: "New claim" },
-  { id: "history", href: "#/history", label: "Claim History", icon: "history", crumb: "Claim history" },
-  { id: "analytics", href: "#/analytics", label: "Analytics", icon: "chart", crumb: "Analytics" },
-  { id: "how", href: "#/how-it-works", label: "How It Works", icon: "help", crumb: "How it works" },
+const ADJUSTER_NAV = [
+  { id: "overview", href: "#/", label: "OVERVIEW", icon: "grid" },
+  { id: "history", href: "#/history", label: "CLAIM HISTORY", icon: "history" },
+  { id: "analytics", href: "#/analytics", label: "ANALYTICS", icon: "chart" },
 ];
 
-function crumbFor(routeName) {
-  if (routeName === "results") return ["Claims", "Screening results"];
-  const item = NAV.find((n) => n.id === routeName);
-  return [item?.crumb || "Overview"];
-}
+const CLAIMANT_NAV = [
+  { id: "new", href: "#/new", label: "SUBMIT CLAIM", icon: "filePlus" },
+  { id: "history", href: "#/history", label: "MY CLAIMS", icon: "history" },
+  { id: "how", href: "#/how-it-works", label: "HOW IT WORKS", icon: "help" },
+];
 
-export default function AppShell({ route, sessionCount, children }) {
-  const [open, setOpen] = useState(false);
+export default function AppShell({
+  route,
+  sessionCount,
+  role,
+  account,
+  onSignOut,
+  children,
+}) {
+  const nav = role === "adjuster" ? ADJUSTER_NAV : CLAIMANT_NAV;
   const activeId = route.name === "results" ? "history" : route.name;
-  const crumbs = crumbFor(route.name);
-
-  // Close the drawer on navigation and on Escape.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => setOpen(false), [route.name, route.params.id]);
+  const pageTitle = route.name === "results"
+    ? "Screening results"
+    : nav.find((item) => item.id === route.name)?.label || "ClaimGuard AI";
   useEffect(() => {
-    if (!open) return undefined;
-    const onKey = (e) => e.key === "Escape" && setOpen(false);
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
+    document.title = `${pageTitle} · ClaimGuard AI`;
+  }, [pageTitle]);
 
   return (
-    <div className="app">
-      <a className="skip-link" href="#main">Skip to content</a>
-      <aside className={`sidebar ${open ? "open" : ""}`} aria-label="Sidebar">
-        <a className="brand" href="#/" aria-label="ClaimGuard AI home">
-          <span className="brand-mark"><Icon name="shield" size={22} /></span>
-          <span>
-            <span className="brand-name">ClaimGuard AI</span>
-            <span className="brand-sub">Claim screening</span>
+    <div className="flex flex-col min-h-screen bg-[#0f0b14]">
+      <a
+        className="absolute left-[-999px] top-2 z-50 bg-purple-900 text-white px-4 py-2 rounded-lg focus:left-2"
+        href="#main"
+      >
+        Skip to content
+      </a>
+
+      <header className="sticky top-0 z-30 backdrop-blur-xl border-b border-purple-800/10">
+        <div className="w-full max-w-[1920px] h-[74px] mx-auto px-9 flex items-center gap-6">
+          {/* Brand */}
+          <a
+            className="flex items-center py-1 text-white rounded-lg flex-shrink-0 hover:opacity-80 transition-opacity"
+            href="#/"
+            aria-label="ClaimGuard AI home"
+          >
+            <span className="font-extrabold text-[17px] tracking-tight">ClaimGuard AI</span>
+          </a>
+
+          {/* Navigation */}
+          <nav className="flex items-center justify-center gap-2.5 flex-1 min-w-0" aria-label="Main navigation">
+            {nav.map((item) => (
+              <a
+                key={item.id}
+                href={item.href}
+                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12.5px] font-semibold whitespace-nowrap transition-all border-2 ${
+                  activeId === item.id
+                    ? "bg-purple-900/40 text-white shadow-lg border-purple-700/60 shadow-purple-900/30"
+                    : "bg-purple-950/20 border-purple-800/30 text-purple-300 hover:bg-purple-900/25 hover:border-purple-700/50 hover:text-white"
+                }`}
+                aria-current={activeId === item.id ? "page" : undefined}
+              >
+                <Icon name={item.icon} size={18} />
+                <span>{item.label}</span>
+                {item.id === "history" && sessionCount > 0 && (
+                  <span
+                    className="text-[10px] font-bold bg-purple-700/50 text-purple-100 rounded-full px-2 py-0.5 border border-purple-600/50"
+                    aria-label={`${sessionCount} this session`}
+                  >
+                    {sessionCount}
+                  </span>
+                )}
+              </a>
+            ))}
+          </nav>
+
+          <div className="flex items-center gap-3 flex-shrink-0">
+            {REGION && (
+              <div
+                className="inline-flex items-center gap-2 text-[11.5px] font-semibold text-purple-400 bg-[#251d33] border border-purple-800/30 rounded-full px-3 py-1.5 whitespace-nowrap"
+                title="The AWS region the screening API is deployed in"
+              >
+                <span className="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_0_3px_rgba(168,85,247,0.2)]" aria-hidden="true" />
+                AWS {REGION}
+              </div>
+            )}
+            <div className="flex items-center gap-2 text-right">
+              <div className="block min-w-0 max-w-[140px]">
+                <p className="truncate text-[10px] font-semibold text-white" title={account?.email}>
+                  {account?.email || "Signed in"}
+                </p>
+                <p className="text-[9px] font-semibold uppercase tracking-wide text-purple-300">
+                  {role}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="rounded-lg border border-purple-700/40 px-3 py-2 text-xs font-semibold text-purple-100 transition-colors hover:bg-purple-900/40"
+                onClick={onSignOut}
+              >
+                Log out
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="flex flex-col flex-1">
+        <main id="main" className="w-full max-w-[1920px] mx-auto px-9 py-9 flex-1 outline-none" tabIndex={-1}>
+          {children}
+        </main>
+
+        <footer className="flex justify-center items-center flex-wrap gap-2 md:gap-6 w-full max-w-[1920px] mx-auto px-9 py-5 border-t border-purple-800/20 text-purple-300 text-[11.5px]">
+          <span className="inline-flex items-center gap-2">
+            <Icon name="lock" size={14} className="text-purple-400 flex-shrink-0" />
+            Documents use private storage and short-lived upload links; they are not public.
           </span>
-        </a>
-
-        <nav className="nav" aria-label="Main navigation">
-          {NAV.map((item) => (
-            <a
-              key={item.id}
-              href={item.href}
-              className={`nav-item ${activeId === item.id ? "active" : ""}`}
-              aria-current={activeId === item.id ? "page" : undefined}
-            >
-              <Icon name={item.icon} size={19} />
-              <span>{item.label}</span>
-              {item.id === "history" && sessionCount > 0 && <span className="nav-count" aria-label={`${sessionCount} this session`}>{sessionCount}</span>}
-            </a>
-          ))}
-        </nav>
-
-        <div className="sidebar-foot">
-          <div className="side-note">
-            <Icon name="lock" size={17} />
-            <p>Documents go to private storage through short-lived upload links. Nothing is made public.</p>
-          </div>
-        </div>
-      </aside>
-      {open && <button type="button" className="scrim" aria-label="Close navigation" onClick={() => setOpen(false)} />}
-
-      <div className="main">
-        <div className="topbar">
-          <div className="topbar-left">
-            <button type="button" className="icon-button menu-button" aria-label="Open navigation" aria-expanded={open} onClick={() => setOpen(true)}>
-              <Icon name="menu" size={22} />
-            </button>
-            <nav className="breadcrumb" aria-label="Breadcrumb">
-              <span>ClaimGuard AI</span>
-              {crumbs.map((c, i) => (
-                <span key={c} className="crumb" aria-current={i === crumbs.length - 1 ? "page" : undefined}>
-                  <span className="crumb-sep" aria-hidden="true">/</span>{c}
-                </span>
-              ))}
-            </nav>
-          </div>
-          <div className="env-chip" title="The AWS region the screening API is deployed in">
-            <span className="env-dot" aria-hidden="true" />
-            AWS {REGION}
-          </div>
-        </div>
-        <main id="main" className="page" tabIndex={-1}>{children}</main>
-        <footer className="app-footer">
-          ClaimGuard AI screens for indicators to support human review. It does not determine fraud.
+          <span>ClaimGuard AI screens indicators for human review; it does not determine fraud.</span>
         </footer>
       </div>
     </div>

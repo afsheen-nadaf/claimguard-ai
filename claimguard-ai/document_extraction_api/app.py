@@ -7,6 +7,13 @@ from urllib.parse import unquote
 
 import boto3
 from botocore.exceptions import ClientError
+from claimguard_auth import (
+    forbidden_response,
+    identity_from_event,
+    is_adjuster,
+    response as auth_response,
+    unauthorized_response,
+)
 
 REGION = os.environ.get("AWS_REGION", "ap-southeast-2")
 BUCKET_NAME = os.environ["CLAIM_PACKETS_BUCKET"]
@@ -16,6 +23,7 @@ MODEL_ID = os.environ.get(
 )
 
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+CORS_ORIGIN = os.environ.get("CORS_ORIGIN")
 
 s3 = boto3.client("s3", region_name=REGION)
 bedrock = boto3.client("bedrock-runtime", region_name=REGION)
@@ -28,16 +36,7 @@ ALLOWED_TYPES = {
 
 
 def response(status_code, body):
-    return {
-        "statusCode": status_code,
-        "headers": {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "http://localhost:5173",
-            "Access-Control-Allow-Headers": "Content-Type",
-            "Access-Control-Allow-Methods": "OPTIONS,POST",
-        },
-        "body": json.dumps(body, default=str),
-    }
+    return auth_response(status_code, body, CORS_ORIGIN)
 
 
 def extract_json(text):
@@ -55,6 +54,10 @@ def extract_json(text):
 def lambda_handler(event, context):
     if event.get("httpMethod") == "OPTIONS":
         return response(200, {"message": "CORS preflight successful"})
+
+    identity = identity_from_event(event)
+    if identity is None:
+        return unauthorized_response()
 
     try:
         body = event.get("body") or "{}"
@@ -96,6 +99,11 @@ def lambda_handler(event, context):
             Bucket=BUCKET_NAME,
             Key=key,
         )
+        if (
+            not is_adjuster(identity)
+            and metadata.get("Metadata", {}).get("userid") != identity["userId"]
+        ):
+            return forbidden_response()
 
         file_size = metadata.get("ContentLength", 0)
 

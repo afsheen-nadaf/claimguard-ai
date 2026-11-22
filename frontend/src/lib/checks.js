@@ -3,16 +3,18 @@ import {
   analyzeClaimImages,
   checkDuplicate,
   checkOutlier,
-  validateEvidenceRelevance,
+  validateEvidence,
   validatePolicy,
 } from "../api/claims";
 
+import { runConsistencyCheck } from "./consistency";
 import {
+  interpretConsistency,
   interpretDuplicate,
+  interpretEvidence,
   interpretForensics,
   interpretOutlier,
   interpretPolicy,
-  interpretRelevance,
 } from "./screening.js";
 
 // One place that wires each screening check
@@ -20,7 +22,8 @@ import {
 export const CHECKS = {
   policy: {
     key: "policy",
-    title: "Policy validation",
+    title: "Policy Validation",
+    description: "Validates policy details against deterministic rules and requirements.",
     icon: "clipboard",
 
     run: (_claimId, claim) => validatePolicy(claim),
@@ -30,7 +33,8 @@ export const CHECKS = {
 
   duplicate: {
     key: "duplicate",
-    title: "Duplicate-claim detection",
+    title: "Duplicate-Claim Detection",
+    description: "Compares claim details and images with earlier submissions to detect duplicates.",
     icon: "copy",
 
     run: (claimId, claim, documents) =>
@@ -41,7 +45,8 @@ export const CHECKS = {
 
   outlier: {
     key: "outlier",
-    title: "Claim-amount outlier detection",
+    title: "Claim-Amount Outlier Detection",
+    description: "Statistical analysis to identify unusually high or low claim amounts.",
     icon: "sliders",
 
     run: (_claimId, claim) => checkOutlier(claim),
@@ -51,7 +56,8 @@ export const CHECKS = {
 
   forensics: {
     key: "forensics",
-    title: "Image forensics analysis",
+    title: "Image Forensics Analysis",
+    description: "Deep analysis of image metadata, compression, and AI-generation signals.",
     icon: "image",
 
     run: (claimId, _claim, documents) =>
@@ -60,14 +66,29 @@ export const CHECKS = {
     interpret: interpretForensics,
   },
 
-  relevance: {
-    key: "relevance",
-    title: "Evidence relevance validation",
-    icon: "file",
+  evidence: {
+    key: "evidence",
+    title: "Evidence Relevance Validation",
+    description: "Verifies that uploaded documents and photos match the reported incident.",
+    icon: "search",
 
     run: (claimId, claim, documents) =>
-      validateEvidenceRelevance(claimId, claim, documents),
+      validateEvidence(claimId, claim, documents),
 
-    interpret: interpretRelevance,
+    interpret: interpretEvidence,
+  },
+
+  consistency: {
+    key: "consistency",
+    title: "Cross-Document Consistency",
+    description: "Compares details extracted from documents to flag mismatched information.",
+    icon: "layers",
+
+    // Pure frontend check — no backend endpoint. Compares extractedData
+    // across uploaded documents to detect field mismatches.
+    run: (_claimId, _claim, documents) =>
+      Promise.resolve(runConsistencyCheck(documents)),
+
+    interpret: interpretConsistency,
   },
 };

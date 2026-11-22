@@ -19,6 +19,7 @@ from unittest.mock import patch
 
 # Configure bucket before importing app
 os.environ["CLAIM_PACKETS_BUCKET"] = "test-claim-packets-bucket"
+os.environ["CORS_ORIGIN"] = "http://localhost:5173"
 
 import app
 
@@ -27,6 +28,13 @@ class TestUploadApi(unittest.TestCase):
     def setUp(self):
         self.claim_id = "CG-1793727402258-20387251"
         self.bucket = "test-claim-packets-bucket"
+        self.identity_patch = patch.object(
+            app,
+            "identity_from_event",
+            return_value={"userId": "claimant-1", "groups": {"claimant"}},
+        )
+        self.identity_patch.start()
+        self.addCleanup(self.identity_patch.stop)
 
     @patch.object(app, "s3")
     def test_01_claim_id_included_in_image_s3_key(self, mock_s3):
@@ -59,6 +67,8 @@ class TestUploadApi(unittest.TestCase):
         self.assertEqual(call_params["Key"], key)
         self.assertEqual(call_params["Bucket"], self.bucket)
         self.assertEqual(call_params["ContentType"], "image/jpeg")
+        self.assertEqual(call_params["Metadata"], {"userid": "claimant-1"})
+        self.assertEqual(body["requiredHeaders"]["x-amz-meta-userid"], "claimant-1")
 
     @patch.object(app, "s3")
     def test_02_pdf_upload_uses_correct_prefix_and_extension(self, mock_s3):
@@ -184,9 +194,8 @@ class TestUploadApi(unittest.TestCase):
         self.assertEqual(res4["statusCode"], 400)
 
     @patch.object(app, "s3")
-    def test_07_omitted_claim_id_fallback(self, mock_s3):
-        """Test 7: When claimId is omitted, falls back to flat incoming/{uuid}.ext for backward compatibility."""
-        mock_s3.generate_presigned_url.return_value = "https://s3.example.com/legacy"
+    def test_07_missing_claim_id_is_rejected(self, mock_s3):
+        """Uploads without a claim ID cannot be associated with an owner."""
 
         event = {
             "body": json.dumps({
@@ -197,14 +206,14 @@ class TestUploadApi(unittest.TestCase):
         }
 
         res = app.lambda_handler(event, None)
-        self.assertEqual(res["statusCode"], 200)
+        self.assertEqual(res["statusCode"], 400)
+        mock_s3.generate_presigned_url.assert_not_called()
 
-        body = json.loads(res["body"])
-        key = body["key"]
-        self.assertTrue(key.startswith("incoming/"))
-        # Should not have double slashes
-        parts = key.split("/")
-        self.assertEqual(len(parts), 2)  # ["incoming", "{uuid}.jpg"]
+    def test_08_unauthenticated_upload_is_rejected_with_cors(self):
+        with patch.object(app, "identity_from_event", return_value=None):
+            res = app.lambda_handler({"body": "{}"}, None)
+        self.assertEqual(res["statusCode"], 401)
+        self.assertIn("Access-Control-Allow-Headers", res["headers"])
 
 
 if __name__ == "__main__":

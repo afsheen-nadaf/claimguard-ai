@@ -16,11 +16,18 @@ from urllib.parse import unquote
 
 import boto3
 from botocore.exceptions import ClientError
+from claimguard_auth import (
+    forbidden_response,
+    identity_from_event,
+    is_adjuster,
+    response as auth_response,
+    unauthorized_response,
+)
 
 REGION = os.environ.get("AWS_REGION", "ap-southeast-2")
 BUCKET_NAME = os.environ.get("CLAIM_PACKETS_BUCKET", "")
 MODEL_ID = os.environ.get("BEDROCK_MODEL_ID", "amazon.nova-lite-v1:0")
-CORS_ORIGIN = os.environ.get("CORS_ORIGIN", "http://localhost:5173")
+CORS_ORIGIN = os.environ.get("CORS_ORIGIN")
 
 MAX_IMAGE_SIZE = 10 * 1024 * 1024  # 10 MB per image
 MAX_PDF_SIZE = int(os.environ.get("MAX_PDF_SIZE", str(int(4.5 * 1024 * 1024))))  # 4.5 MiB per PDF
@@ -84,16 +91,7 @@ bedrock = boto3.client("bedrock-runtime", region_name=REGION)
 
 
 def response(status_code, body):
-    return {
-        "statusCode": status_code,
-        "headers": {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": CORS_ORIGIN,
-            "Access-Control-Allow-Headers": "Content-Type",
-            "Access-Control-Allow-Methods": "OPTIONS,POST",
-        },
-        "body": json.dumps(body, default=str),
-    }
+    return auth_response(status_code, body, CORS_ORIGIN)
 
 
 def extract_json(text):
@@ -200,6 +198,10 @@ def lambda_handler(event, context):
     if event.get("httpMethod") == "OPTIONS":
         return response(200, {"message": "CORS preflight successful"})
 
+    identity = identity_from_event(event)
+    if identity is None:
+        return unauthorized_response()
+
     try:
         raw_body = event.get("body") or "{}"
         if event.get("isBase64Encoded"):
@@ -294,6 +296,11 @@ def lambda_handler(event, context):
 
         try:
             head = s3.head_object(Bucket=bucket, Key=key)
+            if (
+                not is_adjuster(identity)
+                and head.get("Metadata", {}).get("userid") != identity["userId"]
+            ):
+                return forbidden_response()
             size = int(head.get("ContentLength", 0))
 
             if size <= 0 or size > max_size:

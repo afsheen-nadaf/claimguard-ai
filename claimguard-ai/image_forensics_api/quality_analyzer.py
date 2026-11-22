@@ -15,6 +15,16 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageFilter
 
+# ---------------------------------------------------------------------------
+# CONFIGURATION & REASONABLE BOUNDS
+# ---------------------------------------------------------------------------
+
+# Maximum dimension (in pixels) for in-memory NumPy float32 quality analysis.
+# Protects AWS Lambda from multi-gigabyte memory allocations on 50+ megapixel photos.
+MAX_ANALYSIS_DIMENSION = int(
+    os.environ.get("QUALITY_MAX_ANALYSIS_DIMENSION", "2048")
+)
+
 
 def _parse_positive_int(var_name, default_val, env):
     val_str = env.get(var_name)
@@ -148,6 +158,11 @@ def analyze_image_quality(image_path, thresholds=None):
 
     Generates objective usability descriptions. Does not flag photographic
     imperfections as fraud or manipulation.
+
+    Memory Safety:
+    - If dimensions exceed MAX_ANALYSIS_DIMENSION (default 2048 px), creates a downscaled
+      grayscale proxy for Laplacian, brightness, contrast, and noise calculations.
+    - Preserves original image file and reports original dimensions for resolution checks.
     """
     path = Path(image_path)
 
@@ -177,12 +192,27 @@ def analyze_image_quality(image_path, thresholds=None):
     low_contrast_threshold = thresholds["low_contrast_threshold"]
     high_contrast_threshold = thresholds["high_contrast_threshold"]
 
-    blur_score = round(_laplacian_variance(gray), 2)
+    # -------------------------------------------------------------
+    # MEMORY OPTIMIZATION: PROXY DOWNSCALING
+    # -------------------------------------------------------------
+    max_dim = max(width, height)
+    if max_dim > MAX_ANALYSIS_DIMENSION:
+        scale = MAX_ANALYSIS_DIMENSION / max_dim
+        analyzed_width = max(1, round(width * scale))
+        analyzed_height = max(1, round(height * scale))
+        gray_analysis = gray.resize((analyzed_width, analyzed_height), Image.Resampling.BILINEAR)
+        downscaled = True
+    else:
+        gray_analysis = gray
+        analyzed_width, analyzed_height = width, height
+        downscaled = False
 
-    gray_array = np.asarray(gray, dtype=np.float32)
+    blur_score = round(_laplacian_variance(gray_analysis), 2)
+
+    gray_array = np.asarray(gray_analysis, dtype=np.float32)
     brightness = round(float(gray_array.mean()), 2)
     contrast = round(float(gray_array.std()), 2)
-    noise = round(_noise_estimate(gray), 2)
+    noise = round(_noise_estimate(gray_analysis), 2)
 
     # Descriptive evidence-quality assessments
     sharpness_label = "Sharp" if blur_score >= blur_threshold else "Blurry"
@@ -202,6 +232,7 @@ def analyze_image_quality(image_path, thresholds=None):
         contrast_label = "Adequate contrast"
 
     # Orientation-independent resolution check comparing longer and shorter dimensions
+    # Evaluated on original image dimensions
     min_long = max(min_width, min_height)
     min_short = min(min_width, min_height)
     img_long = max(width, height)
@@ -218,6 +249,18 @@ def analyze_image_quality(image_path, thresholds=None):
     )
 
     findings = []
+
+    if downscaled:
+        findings.append({
+            "code": "ANALYSIS_RESOLUTION_DOWNSCALED",
+            "severity": "informational",
+            "category": "evidence_quality",
+            "message": (
+                f"Image dimensions ({width}×{height}) exceeded the maximum analysis resolution "
+                f"({MAX_ANALYSIS_DIMENSION} px); quality inspection was performed on a "
+                f"{analyzed_width}×{analyzed_height} proxy to optimize memory and processing time."
+            ),
+        })
 
     if not resolution_sufficient:
         findings.append({
@@ -279,6 +322,9 @@ def analyze_image_quality(image_path, thresholds=None):
             "width": width,
             "height": height,
             "megapixels": round((width * height) / 1_000_000, 2),
+            "analyzed_width": analyzed_width,
+            "analyzed_height": analyzed_height,
+            "analysis_downscaled": downscaled,
             "blur_score": blur_score,
             "brightness_score": brightness,
             "contrast_score": contrast,

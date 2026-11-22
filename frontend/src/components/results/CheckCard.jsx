@@ -3,12 +3,12 @@ import { Callout, Spinner, StatusBadge } from "../ui";
 
 // Shared frame for one screening check: header + badge, then a body that
 // depends on whether the check is running, failed, or finished.
-export default function CheckCard({ title, icon, check, badgeLabel, onRetry, wide = false, children }) {
+export default function CheckCard({ id, title, icon, check, badgeLabel, onRetry, wide = false, children }) {
   const state = check.status === "done" ? check.result?.state || "inconclusive" : check.status;
   const rawText = check.raw != null ? JSON.stringify(check.raw, null, 2) : null;
 
   return (
-    <section className={`card check-card tone-${state} ${wide ? "wide" : ""}`} aria-busy={check.status === "running"}>
+    <section id={id} className={`card check-card tone-${state} ${wide ? "wide" : ""}`} aria-busy={check.status === "running"}>
       <div className="card-header">
         <div className="card-icon"><Icon name={icon} size={20} /></div>
         <div className="card-title-wrap"><h3 className="card-title">{title}</h3></div>

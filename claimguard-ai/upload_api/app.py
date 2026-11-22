@@ -3,18 +3,23 @@ import json
 import os
 import re
 import uuid
-from urllib.parse import urlparse
 
 import boto3
 from botocore.config import Config
+from claimguard_auth import (
+    forbidden_response,
+    identity_from_event,
+    is_adjuster,
+    response,
+    unauthorized_response,
+)
 
 s3 = boto3.client(
     "s3",
-    region_name="ap-southeast-2",
-    endpoint_url="https://s3.ap-southeast-2.amazonaws.com",
     config=Config(signature_version="s3v4"),
 )
 BUCKET_NAME = os.environ["CLAIM_PACKETS_BUCKET"]
+CORS_ORIGIN = os.environ.get("CORS_ORIGIN")
 ALLOWED_TYPES = {
     "application/pdf": ".pdf",
     "image/jpeg": ".jpg",
@@ -25,20 +30,13 @@ URL_EXPIRY_SECONDS = 300
 CLAIM_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
-def response(status_code, body):
-    return {
-        "statusCode": status_code,
-        "headers": {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "http://localhost:5173",
-            "Access-Control-Allow-Methods": "OPTIONS,POST",
-            "Access-Control-Allow-Headers": "Content-Type",
-        },
-        "body": json.dumps(body),
-    }
-
-
 def lambda_handler(event, context):
+    identity = identity_from_event(event)
+    if identity is None:
+        return unauthorized_response()
+    if is_adjuster(identity):
+        return forbidden_response()
+
     try:
         body = json.loads(event.get("body") or "{}")
     except (json.JSONDecodeError, TypeError):
@@ -62,17 +60,14 @@ def lambda_handler(event, context):
         return response(400, {"error": "File must be between 1 byte and 10 MB."})
 
     claim_id = body.get("claimId")
-    if claim_id is not None:
-        if not isinstance(claim_id, str) or not CLAIM_ID_PATTERN.fullmatch(claim_id.strip()):
-            return response(400, {"error": "Invalid claimId format."})
-        claim_id = claim_id.strip()
+    if not isinstance(claim_id, str) or not CLAIM_ID_PATTERN.fullmatch(claim_id.strip()):
+        return response(400, {"error": "A valid claimId is required."}, CORS_ORIGIN)
+    claim_id = claim_id.strip()
 
     # Never use a client-supplied filename as the S3 key.
     unique_filename = f"{uuid.uuid4().hex}{ALLOWED_TYPES[content_type]}"
-    if claim_id:
-        object_key = f"incoming/{claim_id}/{unique_filename}"
-    else:
-        object_key = f"incoming/{unique_filename}"
+    object_key = f"incoming/{claim_id}/{unique_filename}"
+    metadata_header = f"x-amz-meta-userid"
 
     try:
         upload_url = s3.generate_presigned_url(
@@ -81,13 +76,14 @@ def lambda_handler(event, context):
                 "Bucket": BUCKET_NAME,
                 "Key": object_key,
                 "ContentType": content_type,
+                "Metadata": {"userid": identity["userId"]},
             },
             ExpiresIn=URL_EXPIRY_SECONDS,
             HttpMethod="PUT",
         )
-    except Exception:
-        print("Could not create upload URL.")
-        return response(500, {"error": "Could not prepare upload."})
+    except Exception as error:
+        print(f"Could not create upload URL: {type(error).__name__}")
+        return response(500, {"error": "Could not prepare upload."}, CORS_ORIGIN)
 
     return response(
         200,
@@ -95,6 +91,10 @@ def lambda_handler(event, context):
             "uploadUrl": upload_url,
             "key": object_key,
             "expiresIn": URL_EXPIRY_SECONDS,
-            "requiredHeaders": {"Content-Type": content_type},
+            "requiredHeaders": {
+                "Content-Type": content_type,
+                metadata_header: identity["userId"],
+            },
         },
+        CORS_ORIGIN,
     )

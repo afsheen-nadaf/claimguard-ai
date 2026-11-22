@@ -90,13 +90,15 @@ export default function ImageForensicsSection({ record, check, onRetry }) {
 
   return (
     <section
+      id="check-forensics"
       className="image-forensics-section mt"
       aria-labelledby="forensics-title"
     >
       <div className="section-head">
         <div>
           <div className="eyebrow">IMAGE FORENSICS</div>
-          <h2 id="forensics-title" className="section-title">
+          <h2 id="forensics-title" className="section-title forensics-title">
+            <Icon name="image" size={20} />
             Image Forensics Analysis
           </h2>
           <p className="muted small">
@@ -112,7 +114,7 @@ export default function ImageForensicsSection({ record, check, onRetry }) {
                 : isRunning
                 ? "idle"
                 : overview.isSkipped
-                ? "idle"
+                ? "skipped"
                 : overview.analysisState === "pass"
                 ? "pass"
                 : overview.analysisState === "review"
@@ -150,15 +152,19 @@ export default function ImageForensicsSection({ record, check, onRetry }) {
 
           <div className="forensics-stat-tile">
             <span className="stat-label">Checks completed</span>
-            <strong className="stat-value">
+            <strong className={`stat-value ${!overview.hasRawData ? "stat-value-compact" : ""}`}>
               {isRunning
                 ? "Running…"
+                : overview.isSkipped
+                ? "Skipped"
                 : overview.hasRawData
                 ? `${overview.analysesCompleted} checks`
                 : `${overview.imagesAnalyzed} processed`}
             </strong>
             <span className="stat-sub muted small">
-              {overview.analysesWithErrors > 0
+              {overview.isSkipped
+                ? "No photos uploaded; image checks were not run."
+                : overview.analysesWithErrors > 0
                 ? `${overview.analysesWithErrors} warning / error`
                 : "All checks completed"}
             </span>
@@ -255,7 +261,7 @@ export default function ImageForensicsSection({ record, check, onRetry }) {
 
         {/* Running state notice */}
         {isRunning && (
-          <div className="forensics-pipeline-note">
+          <div className="forensics-pipeline-note note-skipped">
             <Spinner label="" />
             <div>
               <strong>Analyzing uploaded image(s) with AWS Lambda &amp; Hugging Face ZeroGPU…</strong>
@@ -410,10 +416,10 @@ export default function ImageForensicsSection({ record, check, onRetry }) {
               />
             </div>
             <div className="review-rec-title-wrap">
-              <div className="eyebrow">
+              <div className="eyebrow" style={{ color: '#f5f0e8' }}>
                 {review.required ? "ANALYST ACTION REQUIRED" : "ANALYST RECOMMENDATION"}
               </div>
-              <h3 className="review-rec-title">
+              <h3 className="review-rec-title" style={{ color: '#f5f0e8' }}>
                 {review.required
                   ? "Human Review Recommended"
                   : "No review flags detected"}
@@ -451,10 +457,10 @@ export default function ImageForensicsSection({ record, check, onRetry }) {
 
           {/* Neutral disclaimer when review is not required */}
           {!review.required && (
-            <div className="review-neutral-notice mt">
-              <Icon name="info" size={15} />
+            <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-purple-700/40 bg-purple-950/60 px-4 py-3 text-xs leading-relaxed text-purple-100">
+              <Icon name="info" size={16} className="mt-0.5 flex-shrink-0 text-purple-300" />
               <span>
-                <strong>Important:</strong> &ldquo;No review flags detected&rdquo; does not establish that the image is authentic, unaltered, or fraud-free. Always corroborate photo evidence with policy details and incident records.
+                <strong className="font-semibold text-white">Important:</strong> &ldquo;No review flags detected&rdquo; does not establish that the image is authentic, unaltered, or fraud-free. Always corroborate photo evidence with policy details and incident records.
               </span>
             </div>
           )}

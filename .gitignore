@@ -6,6 +6,7 @@
 .aws/
 *.pem
 *.key
+/rootkey.csv
 
 # Python
 __pycache__/
@@ -48,3 +49,9 @@ Thumbs.db
 
 # Local test outputs and scratchpad
 image-forensics-test/
+things-to-fix-in-frontend/
+dont-commit/
+
+.claude/
+.pytest_cache/
+.venv/
