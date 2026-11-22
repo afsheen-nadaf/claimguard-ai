@@ -12,6 +12,11 @@ export function persistScreeningResult(claimId, checkKey, checkResult) {
   return postJson(ENDPOINTS.saveResults, { claimId, checkKey, checkResult });
 }
 
+export function fetchDocumentViewUrl(claimId, key) {
+  const params = new URLSearchParams({ claimId, key });
+  const baseUrl = ENDPOINTS.fetchHistory.replace(/\/claims\/history$/, "/claims/document-url");
+  return getJson(`${baseUrl}?${params.toString()}`);
+}
 // ---------------------------------------------------------------------------
 // Backend pipeline (Step Functions). Used when VITE_USE_PIPELINE=true.
 // ---------------------------------------------------------------------------

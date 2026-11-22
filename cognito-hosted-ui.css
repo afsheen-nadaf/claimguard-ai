@@ -1,0 +1,138 @@
+.logo-customizable {
+  max-width: 60%;
+  max-height: 30%;
+}
+
+.banner-customizable {
+  padding: 24px 0px 24px 0px;
+  background-color: #1a1425;
+  border-bottom: 1px solid #2e1f47;
+}
+
+.label-customizable {
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 500;
+  color: #e9d5ff;
+  font-size: 13px;
+}
+
+.textDescription-customizable {
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  display: block;
+  font-size: 15px;
+  font-weight: 500;
+  color: #f5f0e8;
+}
+
+.idpDescription-customizable {
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  display: block;
+  font-size: 15px;
+  color: #f5f0e8;
+}
+
+.legalText-customizable {
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #c4b5fd;
+  font-size: 11px;
+  display: block;
+}
+
+.submitButton-customizable {
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  margin: 22px 0px 10px 0px;
+  height: 44px;
+  width: 100%;
+  color: #f5f0e8;
+  background-color: #5b21b6;
+  border: 1px solid #6d28d9;
+  border-radius: 14px;
+}
+
+.submitButton-customizable:hover {
+  color: #ffffff;
+  background-color: #6d28d9;
+  border-color: #7c3aed;
+}
+
+.errorMessage-customizable {
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  padding: 10px 12px;
+  font-size: 13px;
+  width: 100%;
+  background: #3b0d18;
+  border: 1px solid #9f1239;
+  color: #fecdd3;
+  border-radius: 12px;
+}
+
+.inputField-customizable {
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  width: 100%;
+  height: 42px;
+  padding: 0px 12px;
+  color: #f5f0e8;
+  background-color: #251d33;
+  border: 1px solid #4c1d95;
+  border-radius: 14px;
+}
+
+.inputField-customizable:focus {
+  border-color: #8b5cf6;
+  outline: 0;
+}
+
+.idpButton-customizable {
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  height: 42px;
+  width: 100%;
+  text-align: center;
+  margin-bottom: 15px;
+  color: #f5f0e8;
+  background-color: #251d33;
+  border: 1px solid #4c1d95;
+  border-radius: 14px;
+}
+
+.idpButton-customizable:hover {
+  color: #ffffff;
+  background-color: #2e1f47;
+  border-color: #6d28d9;
+}
+
+.socialButton-customizable {
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  border-radius: 14px;
+  height: 42px;
+  margin-bottom: 15px;
+  padding: 1px;
+  text-align: left;
+  width: 100%;
+}
+
+.redirect-customizable {
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  text-align: center;
+  color: #c4b5fd;
+}
+
+.passwordCheck-notValid-customizable {
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #fda4af;
+}
+
+.passwordCheck-valid-customizable {
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #6ee7b7;
+}
+
+.background-customizable {
+  background-color: #130d1e !important;
+  border-radius: 20px;
+}

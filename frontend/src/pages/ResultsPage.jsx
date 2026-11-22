@@ -1,5 +1,6 @@
 import { useState } from "react";
 import toast from "react-hot-toast";
+import { fetchDocumentViewUrl } from "../api/claims";
 import Icon from "../components/Icon";
 import RiskScoreMeter from "../components/RiskScoreMeter";
 import StickyNavSidebar from "../components/StickyNavSidebar";
@@ -25,6 +26,8 @@ import { formatBytes, formatDate, formatDateTime, formatINR } from "../lib/forma
 
 export default function ResultsPage({ record, onRetry, navigate }) {
   const [copied, setCopied] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState(null);
+  const [loadingDocKey, setLoadingDocKey] = useState(null);
 
   if (!record) {
     return (
@@ -106,6 +109,27 @@ export default function ResultsPage({ record, onRetry, navigate }) {
       setTimeout(() => setCopied(false), 1800);
     } catch {
       toast.error("Could not copy to clipboard");
+    }
+  }
+
+  async function handleViewDocument(doc) {
+    const docKey = doc.s3Key || doc.key;
+    if (!docKey) {
+      toast.error("File preview is unavailable for this entry.");
+      return;
+    }
+    setLoadingDocKey(docKey);
+    try {
+      const data = await fetchDocumentViewUrl(record.id, docKey);
+      setPreviewDoc({
+        url: data.url,
+        name: doc.name || data.name,
+        contentType: doc.type || doc.contentType || data.contentType || "",
+      });
+    } catch (error) {
+      toast.error(error.message || "Could not load document preview.");
+    } finally {
+      setLoadingDocKey(null);
     }
   }
 
@@ -527,29 +551,113 @@ export default function ResultsPage({ record, onRetry, navigate }) {
                   Documents <span className="text-sm font-normal text-purple-300">({record.documents.length})</span>
                 </h3>
                 <ul className="space-y-3">
-                  {record.documents.map((d, i) => (
-                    <li key={`${d.name}-${i}`} className="flex items-center gap-3 p-4 bg-purple-950/60 border border-purple-800/50 rounded-xl hover:bg-purple-900/60 hover:border-purple-700/50 transition-all group">
-                      <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${
-                        i % 6 === 0 ? "from-purple-900 to-purple-800" :
-                        i % 6 === 1 ? "from-purple-800 to-purple-700" :
-                        i % 6 === 2 ? "from-purple-700 to-purple-600" :
-                        i % 6 === 3 ? "from-purple-600 to-purple-500" :
-                        i % 6 === 4 ? "from-purple-500 to-purple-400" :
-                        "from-purple-400 to-purple-300"
-                      } flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform`}>
-                        <Icon name={d.type === "application/pdf" ? "file" : "image"} size={20} className="text-white" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-sm text-white truncate">{d.name}</div>
-                        <div className="text-xs text-purple-400 flex items-center gap-2 mt-1">
-                          <span className="truncate">{d.type}</span>
-                          <span>•</span>
-                          <span>{formatBytes(d.size)}</span>
+                  {record.documents.map((d, i) => {
+                    const docKey = d.s3Key || d.key;
+                    const docType = d.type || d.contentType || "";
+                    const isPdf =
+                      docType === "application/pdf" ||
+                      d.name?.toLowerCase().endsWith(".pdf");
+                    return (
+                      <li
+                        key={`${d.name}-${i}`}
+                        className="flex items-center gap-3 p-4 bg-purple-950/60 border border-purple-800/50 rounded-xl hover:bg-purple-900/60 hover:border-purple-700/50 transition-all group"
+                      >
+                        <div
+                          className={`w-12 h-12 rounded-lg bg-gradient-to-br ${
+                            i % 6 === 0
+                              ? "from-purple-900 to-purple-800"
+                              : i % 6 === 1
+                              ? "from-purple-800 to-purple-700"
+                              : i % 6 === 2
+                              ? "from-purple-700 to-purple-600"
+                              : i % 6 === 3
+                              ? "from-purple-600 to-purple-500"
+                              : i % 6 === 4
+                              ? "from-purple-500 to-purple-400"
+                              : "from-purple-400 to-purple-300"
+                          } flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform`}
+                        >
+                          <Icon name={isPdf ? "file" : "image"} size={20} className="text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-sm text-white truncate">{d.name}</div>
+                          <div className="text-xs text-purple-400 flex items-center gap-2 mt-1">
+                            <span className="truncate">{docType || "Document"}</span>
+                            {typeof d.size === "number" && (
+                              <>
+                                <span>•</span>
+                                <span>{formatBytes(d.size)}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        {docKey && (
+                          <button
+                            type="button"
+                            disabled={loadingDocKey === docKey}
+                            onClick={() => handleViewDocument(d)}
+                            className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-purple-800/60 text-purple-100 border border-purple-600/40 hover:bg-purple-700/70 hover:text-white transition-all flex items-center gap-1.5 flex-shrink-0 disabled:opacity-50"
+                          >
+                            <Icon name="eye" size={14} />
+                            <span>{loadingDocKey === docKey ? "Loading..." : "View"}</span>
+                          </button>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+
+                {previewDoc && (
+                  <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+                    onClick={() => setPreviewDoc(null)}
+                  >
+                    <div
+                      className="bg-[#1a1425] border border-purple-700/40 rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden shadow-2xl"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-purple-800/40">
+                        <div className="min-w-0">
+                          <h4 className="text-sm font-bold text-white truncate">{previewDoc.name}</h4>
+                          <p className="text-xs text-purple-400">{previewDoc.contentType}</p>
+                        </div>
+                        <div className="flex items-center gap-3 flex-shrink-0">
+                          <a
+                            href={previewDoc.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-purple-900/60 text-purple-200 border border-purple-700/40 hover:bg-purple-800 transition-colors"
+                          >
+                            Open in new tab
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => setPreviewDoc(null)}
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#251d33] text-purple-100 border border-purple-700/40 hover:bg-[#2d2440] transition-colors"
+                          >
+                            Close
+                          </button>
                         </div>
                       </div>
-                    </li>
-                  ))}
-                </ul>
+                      <div className="flex-1 overflow-auto p-6 flex items-center justify-center bg-[#0f0b14]">
+                        {previewDoc.contentType === "application/pdf" ||
+                        previewDoc.name?.toLowerCase().endsWith(".pdf") ? (
+                          <iframe
+                            src={previewDoc.url}
+                            title={previewDoc.name}
+                            className="w-full h-[72vh] rounded-xl border border-purple-800/40 bg-white"
+                          />
+                        ) : (
+                          <img
+                            src={previewDoc.url}
+                            alt={previewDoc.name}
+                            className="max-h-[72vh] max-w-full rounded-xl object-contain shadow-lg"
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Timeline */}

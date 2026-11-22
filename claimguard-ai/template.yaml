@@ -728,45 +728,39 @@ Resources:
 
 
   FetchClaimsFunction:
-
     Type: AWS::Serverless::Function
-
     Properties:
-
       CodeUri: fetch_claims_api/
-
       Handler: app.lambda_handler
-
       Runtime: python3.14
-
       Timeout: 15
-
       MemorySize: 256
-
-
-
       Environment:
         Variables:
           OPERATIONAL_CLAIMS_TABLE: !Ref OperationalClaimsTable
+          CLAIM_PACKETS_BUCKET: !Ref ClaimPacketsBucket
           CORS_ORIGIN: !Ref FrontendOrigin
       Layers:
         - !Ref CognitoAuthLayer
-
-
-
       Policies:
-
         - DynamoDBReadPolicy:
-
             TableName: !Ref OperationalClaimsTable
-
-
-
+        - Statement:
+            - Sid: ReadClaimDocumentsForPreview
+              Effect: Allow
+              Action:
+                - s3:GetObject
+              Resource: !Sub "${ClaimPacketsBucket.Arn}/incoming/*"
       Events:
         FetchClaims:
           Type: Api
           Properties:
             Path: /claims/history
+            Method: GET
+        GetDocumentUrl:
+          Type: Api
+          Properties:
+            Path: /claims/document-url
             Method: GET
 
   SaveClaimResultsFunction:

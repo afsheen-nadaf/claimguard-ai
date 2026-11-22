@@ -6,6 +6,7 @@ from decimal import Decimal
 
 import boto3
 from boto3.dynamodb.conditions import Key
+from botocore.config import Config
 from botocore.exceptions import ClientError
 from claimguard_auth import (
     forbidden_response,
@@ -17,8 +18,15 @@ from claimguard_auth import (
 
 REGION = os.environ.get("AWS_REGION", "ap-southeast-2")
 TABLE_NAME = os.environ["OPERATIONAL_CLAIMS_TABLE"]
+BUCKET_NAME = os.environ.get("CLAIM_PACKETS_BUCKET", "")
 MAX_LIMIT = 100
+PREVIEW_EXPIRY_SECONDS = 900  # 15 minutes
 CLAIM_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
+ALLOWED_PREVIEW_TYPES = {
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+}
 CLAIM_FIELDS = {
     "claimId",
     "claimantName",
@@ -42,6 +50,7 @@ CLAIM_FIELDS = {
 
 dynamodb = boto3.resource("dynamodb", region_name=REGION)
 claims_table = dynamodb.Table(TABLE_NAME)
+s3 = boto3.client("s3", region_name=REGION, config=Config(signature_version="s3v4"))
 
 
 def _cursor_decode(value, user_id, adjuster):
@@ -99,6 +108,56 @@ def _serialize(items, adjuster):
     return claims
 
 
+def _handle_document_url(query, identity, adjuster):
+    if not BUCKET_NAME:
+        return response(500, {"error": "Document storage is not configured."})
+
+    claim_id = query.get("claimId")
+    object_key = (query.get("key") or "").strip()
+
+    if not isinstance(claim_id, str) or not CLAIM_ID_PATTERN.fullmatch(claim_id):
+        return response(400, {"error": "Invalid claimId."})
+    if not object_key or not object_key.startswith(f"incoming/{claim_id}/") or ".." in object_key:
+        return response(400, {"error": "Invalid document key."})
+
+    result = claims_table.get_item(Key={"claimId": claim_id})
+    item = result.get("Item")
+    if item is None:
+        return response(404, {"error": "Claim not found."})
+    if not adjuster and item.get("userId") != identity["userId"]:
+        return forbidden_response()
+
+    docs = item.get("documents") or []
+    matched_doc = next(
+        (d for d in docs if isinstance(d, dict) and (d.get("key") or d.get("s3Key")) == object_key),
+        None,
+    )
+    if matched_doc is None:
+        return response(404, {"error": "Document not found on this claim."})
+
+    content_type = matched_doc.get("contentType") or matched_doc.get("type") or "application/octet-stream"
+    params = {
+        "Bucket": BUCKET_NAME,
+        "Key": object_key,
+        "ResponseContentDisposition": "inline",
+    }
+    if content_type in ALLOWED_PREVIEW_TYPES:
+        params["ResponseContentType"] = content_type
+
+    url = s3.generate_presigned_url(
+        "get_object",
+        Params=params,
+        ExpiresIn=PREVIEW_EXPIRY_SECONDS,
+    )
+    return response(200, {
+        "url": url,
+        "key": object_key,
+        "name": matched_doc.get("name") or object_key.split("/")[-1],
+        "contentType": content_type,
+        "expiresIn": PREVIEW_EXPIRY_SECONDS,
+    })
+
+
 def lambda_handler(event, context):
     if event.get("httpMethod") == "OPTIONS":
         return response(200, {"message": "CORS preflight"})
@@ -109,20 +168,23 @@ def lambda_handler(event, context):
     adjuster = is_adjuster(identity)
 
     query = event.get("queryStringParameters") or {}
-    try:
-        limit = int(query.get("limit", 50))
-    except (TypeError, ValueError):
-        return response(400, {"error": "limit must be an integer."})
-    if not 1 <= limit <= MAX_LIMIT:
-        return response(400, {"error": f"limit must be between 1 and {MAX_LIMIT}."})
+    path = event.get("path") or event.get("resource") or ""
 
-    claim_id = query.get("claimId")
-    if claim_id is not None and (
-        not isinstance(claim_id, str)
-        or not CLAIM_ID_PATTERN.fullmatch(claim_id)
-    ):
-        return response(400, {"error": "Invalid claimId."})
     try:
+        if path.endswith("/document-url"):
+            return _handle_document_url(query, identity, adjuster)
+
+        limit = int(query.get("limit", 50))
+        if not 1 <= limit <= MAX_LIMIT:
+            return response(400, {"error": f"limit must be between 1 and {MAX_LIMIT}."})
+
+        claim_id = query.get("claimId")
+        if claim_id is not None and (
+            not isinstance(claim_id, str)
+            or not CLAIM_ID_PATTERN.fullmatch(claim_id)
+        ):
+            return response(400, {"error": "Invalid claimId."})
+
         if claim_id:
             result = claims_table.get_item(Key={"claimId": claim_id})
             item = result.get("Item")
@@ -163,5 +225,5 @@ def lambda_handler(event, context):
     except ValueError as error:
         return response(400, {"error": str(error)})
     except ClientError as error:
-        print(f"Claim history query failed: {error.response.get('Error', {}).get('Code')}")
-        return response(500, {"error": "Failed to fetch claims."})
+        print(f"Claim history / document request failed: {error.response.get('Error', {}).get('Code')}")
+        return response(500, {"error": "Request failed."})

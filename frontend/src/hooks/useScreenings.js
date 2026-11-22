@@ -112,7 +112,14 @@ function mapCloudClaim(claim, role) {
       incidentDate: claim.incidentDate || "",
       claimAmountINR: claim.claimAmountINR,
     },
-    documents: Array.isArray(claim.documents) ? claim.documents : [],
+    documents: Array.isArray(claim.documents)
+      ? claim.documents.map((doc) => ({
+          ...doc,
+          s3Key: doc.s3Key || doc.key || "",
+          type: doc.type || doc.contentType || "",
+          name: doc.name || (doc.key ? doc.key.split("/").pop() : "Document"),
+        }))
+      : [],
     checks,
     cloudRecord: true,
   };
