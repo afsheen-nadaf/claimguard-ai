@@ -34,7 +34,7 @@ Globals:
 Parameters:
   FrontendOrigin:
     Type: String
-    Default: http://localhost:5173
+    Default: https://main.d2e2qy7yqilyn0.amplifyapp.com
     Description: Browser origin allowed to use the API and Cognito Hosted UI.
   CognitoDomainPrefix:
     Type: String
