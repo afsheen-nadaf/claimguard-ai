@@ -62,14 +62,21 @@ def lambda_handler(event, context):
         return response(400, {"error": "documents must be a list of at most 10 items."})
 
     prefix = f"incoming/{claim_id}/"
-    image_keys, evidence = [], []
+    image_keys, evidence, stored_documents = [], [], []
     for doc in docs:
         key = doc.get("key") if isinstance(doc, dict) else None
         if not isinstance(key, str) or not key.startswith(prefix) or ".." in key:
             return response(400, {"error": "Each document must belong to this claim."})
+        content_type = str(doc.get("contentType") or "application/octet-stream")
+        doc_name = str(doc.get("name") or key.split("/")[-1]).strip()[:255]
+        stored_documents.append({
+            "key": key,
+            "contentType": content_type,
+            "name": doc_name,
+        })
         evidence.append({
             "key": key,
-            "contentType": str(doc.get("contentType") or "application/octet-stream"),
+            "contentType": content_type,
         })
         if key.lower().endswith(IMAGE_EXT):
             image_keys.append(key)
@@ -82,6 +89,7 @@ def lambda_handler(event, context):
     pipeline_input = {
         "claimId": claim_id,
         "userId": identity["userId"],
+        "documents": stored_documents,
         "skip": {"forensics": not image_keys, "evidence": not evidence},
         "events": {
             "duplicate": lambda_event(identity, {

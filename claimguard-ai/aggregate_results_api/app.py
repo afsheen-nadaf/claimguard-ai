@@ -150,17 +150,34 @@ def extract_ground_truth_facts(claim_id, built):
         checks_summary["forensics"] = {"state": "SKIPPED", "reason": "NO_IMAGES"}
     else:
         images = f_raw.get("images") or []
-        flagged_imgs = [
-            img for img in images
-            if img.get("riskLevel") in ("HIGH", "MEDIUM")
-            or img.get("aiGenerated") is True
-            or img.get("exifMissing") is True
-        ]
-        state = "REVIEW" if (flagged_imgs or int(f_raw.get("analysesWithErrors") or 0) > 0) else "PASS"
+        flagged_imgs = []
+        max_ai_score = 0.0
+        for img in images:
+            ai_det = img.get("aiDetection") or img.get("smaug") or {}
+            score = float(ai_det.get("score") or img.get("aiScore") or 0.0)
+            if score > max_ai_score:
+                max_ai_score = score
+            is_flagged = (
+                bool(img.get("reviewRecommended"))
+                or bool(img.get("flaggedReasons"))
+                or str(img.get("status") or img.get("verdict") or "").upper() in ("REVIEW", "FLAGGED", "HIGH")
+                or score >= 0.5
+            )
+            if is_flagged:
+                flagged_imgs.append(img)
+
+        overall_flagged = (
+            bool(flagged_imgs)
+            or bool(f_raw.get("reviewRecommended"))
+            or int(f_raw.get("analysesWithErrors") or 0) > 0
+            or str(f_raw.get("analysisStatus") or "").upper() in ("REVIEW", "FLAGGED")
+        )
+        state = "REVIEW" if overall_flagged else "PASS"
         checks_summary["forensics"] = {
             "state": state,
             "imagesSubmitted": int(f_raw.get("imagesSubmitted") or len(images)),
             "flaggedImageCount": len(flagged_imgs),
+            "maxAiGenerationScore": round(max_ai_score, 4),
         }
         if state != "PASS":
             triggered.append("forensics")
@@ -266,7 +283,6 @@ def generate_grounded_brief(facts, generated_at):
             },
         )
         raw_text = response["output"]["message"]["content"][0]["text"].strip()
-        # Strip optional markdown code fences if emitted
         if raw_text.startswith("```"):
             raw_text = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw_text, flags=re.DOTALL).strip()
 
@@ -350,6 +366,10 @@ def lambda_handler(event, context):
         ":userId": user_id,
         ":aiAssessment": ai_assessment,
     })
+    if isinstance(event.get("documents"), list):
+        sets.append("documents = :documents")
+        values[":documents"] = event["documents"]
+
     table.update_item(
         Key=key,
         UpdateExpression="SET " + ", ".join(sets),

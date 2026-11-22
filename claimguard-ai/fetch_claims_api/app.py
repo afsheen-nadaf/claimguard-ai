@@ -87,6 +87,39 @@ def _plain(value):
     return value
 
 
+def _extract_documents(item):
+    raw_docs = item.get("documents")
+    if isinstance(raw_docs, list) and len(raw_docs) > 0:
+        return _plain(raw_docs)
+
+    # Backfill from saved screeningResults for claims submitted before documents were persisted
+    recovered = {}
+    sr = _plain(item.get("screeningResults") or {})
+
+    ev_raw = (sr.get("evidence") or {}).get("check", {}).get("raw") or {}
+    for ev in ev_raw.get("evidenceResults") or []:
+        key = ev.get("key") or ev.get("s3Key")
+        if key:
+            recovered[key] = {
+                "key": key,
+                "name": ev.get("filename") or key.split("/")[-1],
+                "contentType": ev.get("contentType")
+                or ("application/pdf" if key.lower().endswith(".pdf") else "image/png"),
+            }
+
+    fo_raw = (sr.get("forensics") or {}).get("check", {}).get("raw") or {}
+    for img in fo_raw.get("images") or []:
+        key = img.get("s3Key") or img.get("key")
+        if key and key not in recovered:
+            recovered[key] = {
+                "key": key,
+                "name": img.get("filename") or key.split("/")[-1],
+                "contentType": "image/png" if key.lower().endswith(".png") else "image/jpeg",
+            }
+
+    return list(recovered.values())
+
+
 def _serialize(items, adjuster):
     claims = []
     for item in items:
@@ -95,6 +128,7 @@ def _serialize(items, adjuster):
             for key, value in item.items()
             if key in CLAIM_FIELDS
         }
+        claim["documents"] = _extract_documents(item)
         if not adjuster:
             for key in (
                 "aiAssessment",
@@ -127,7 +161,7 @@ def _handle_document_url(query, identity, adjuster):
     if not adjuster and item.get("userId") != identity["userId"]:
         return forbidden_response()
 
-    docs = item.get("documents") or []
+    docs = _extract_documents(item)
     matched_doc = next(
         (d for d in docs if isinstance(d, dict) and (d.get("key") or d.get("s3Key")) == object_key),
         None,
