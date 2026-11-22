@@ -32,6 +32,7 @@ CLAIM_FIELDS = {
     "screeningResults",
     "screeningStatus",
     "screeningUpdatedAt",
+    "aiAssessment",
     "documents",
     "duplicateMatches",
     "duplicateMatchCount",
@@ -66,6 +67,7 @@ def _cursor_encode(key):
     raw = json.dumps(key, separators=(",", ":"), default=str).encode("utf-8")
     return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
 
+
 def _plain(value):
     if isinstance(value, Decimal):
         return int(value) if value == value.to_integral_value() else float(value)
@@ -74,6 +76,7 @@ def _plain(value):
     if isinstance(value, list):
         return [_plain(v) for v in value]
     return value
+
 
 def _serialize(items, adjuster):
     claims = []
@@ -85,6 +88,7 @@ def _serialize(items, adjuster):
         }
         if not adjuster:
             for key in (
+                "aiAssessment",
                 "duplicateMatches",
                 "duplicateMatchCount",
                 "duplicateImageMatches",

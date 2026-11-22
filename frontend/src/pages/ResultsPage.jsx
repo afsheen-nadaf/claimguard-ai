@@ -390,6 +390,72 @@ export default function ResultsPage({ record, onRetry, navigate }) {
                 </div>
               </div>
             </div>
+
+            {/* Grounded AI Narrative Synthesis */}
+            {record.aiAssessment && (
+              <div className="mt-6 bg-gradient-to-br from-[#1a1425] to-[#251d33] backdrop-blur-xl border border-purple-700/30 rounded-2xl p-8 shadow-2xl">
+                <div className="flex items-center justify-between gap-4 flex-wrap mb-4">
+                  <h2 className="flex items-center gap-2 text-xs font-bold tracking-[0.12em] text-purple-300 uppercase">
+                    <Icon name="clipboard" size={15} className="text-purple-400" />
+                    <span>AI Narrative Synthesis</span>
+                  </h2>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-purple-950/80 text-purple-200 border border-purple-700/40">
+                    {record.aiAssessment.posture === "CLEAR_SIGNALS" && "Clear Signals"}
+                    {record.aiAssessment.posture === "SINGLE_INDICATOR" && "Single Indicator"}
+                    {record.aiAssessment.posture === "MULTI_SIGNAL_REVIEW" && "Multi-Signal Review"}
+                  </span>
+                </div>
+
+                <p className="text-sm text-[#f5f0e8] leading-relaxed mb-5">
+                  {record.aiAssessment.executiveSummary}
+                </p>
+
+                {Array.isArray(record.aiAssessment.groundedObservations) &&
+                  record.aiAssessment.groundedObservations.length > 0 && (
+                    <div className="mb-5">
+                      <div className="text-[11px] font-bold tracking-wider text-purple-300 uppercase mb-2.5">
+                        Grounded Cross-Check Findings
+                      </div>
+                      <ul className="space-y-2">
+                        {record.aiAssessment.groundedObservations.map((obs, idx) => (
+                          <li
+                            key={`${obs.check}-${idx}`}
+                            className="flex items-start gap-3 p-3 rounded-xl bg-purple-950/50 border border-purple-800/40 text-sm"
+                          >
+                            <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[11px] font-bold uppercase flex-shrink-0 mt-0.5">
+                              {obs.check}
+                            </span>
+                            <span className="text-purple-100 leading-relaxed">{obs.finding}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                {Array.isArray(record.aiAssessment.recommendedAdjusterActions) &&
+                  record.aiAssessment.recommendedAdjusterActions.length > 0 && (
+                    <div className="mb-4">
+                      <div className="text-[11px] font-bold tracking-wider text-purple-300 uppercase mb-2.5">
+                        Suggested Verification Steps
+                      </div>
+                      <ul className="space-y-1.5">
+                        {record.aiAssessment.recommendedAdjusterActions.map((action, idx) => (
+                          <li key={idx} className="flex items-start gap-2.5 text-sm text-purple-200">
+                            <Icon name="checkCircle" size={15} className="text-purple-400 flex-shrink-0 mt-0.5" />
+                            <span>{action}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                {record.aiAssessment.disclaimer && (
+                  <p className="pt-3 border-t border-purple-800/40 text-xs text-purple-400">
+                    {record.aiAssessment.disclaimer}
+                  </p>
+                )}
+              </div>
+            )}
           </section>
 
           {/* Check Sections */}

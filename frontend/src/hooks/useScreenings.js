@@ -104,6 +104,7 @@ function mapCloudClaim(claim, role) {
     id: claim.claimId,
     submittedAt,
     screeningStatus: claim.screeningStatus || "UNAVAILABLE",
+    aiAssessment: claim.aiAssessment || null,
     claim: {
       claimantName: claim.claimantName || "",
       policyNumber: claim.policyNumber || "",
@@ -161,6 +162,7 @@ function mergeRecords(current, incoming) {
           record.screeningStatus && record.screeningStatus !== "UNAVAILABLE"
             ? record.screeningStatus
             : existing.screeningStatus,
+        aiAssessment: record.aiAssessment || existing.aiAssessment || null,
         claim: {
           ...existing.claim,
           ...record.claim,
@@ -442,6 +444,7 @@ export function useScreenings(userId, role) {
           id: claimId,
           submittedAt: Date.now(),
           screeningStatus: "RUNNING",
+          aiAssessment: null,
           claim,
           documents,
           checks,

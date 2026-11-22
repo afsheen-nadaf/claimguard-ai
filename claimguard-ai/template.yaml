@@ -96,15 +96,21 @@ Resources:
       CodeUri: aggregate_results_api/
       Handler: app.lambda_handler
       Runtime: python3.14
-      Timeout: 15
+      Timeout: 25
       Environment:
         Variables:
           OPERATIONAL_CLAIMS_TABLE: !Ref OperationalClaimsTable
+          BEDROCK_MODEL_ID: amazon.nova-lite-v1:0
       Policies:
         - Statement:
             - Effect: Allow
               Action: dynamodb:UpdateItem
               Resource: !GetAtt OperationalClaimsTable.Arn
+            - Sid: InvokeNovaLiteNarrative
+              Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource: !Sub "arn:${AWS::Partition}:bedrock:${AWS::Region}::foundation-model/amazon.nova-lite-v1:0"
 
   ClaimPipeline:
     Type: AWS::Serverless::StateMachine
