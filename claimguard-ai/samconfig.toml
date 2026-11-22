@@ -20,7 +20,7 @@ resolve_s3 = true
 s3_prefix = "claimguard-ai"
 profile = "claimguard-ai"
 image_repositories = ["ImageForensicsFunction=368731956134.dkr.ecr.ap-southeast-2.amazonaws.com/claimguardai13a6a7d6/imageforensicsfunction8ba1ce56repo"]
-parameter_overrides = "FrontendOrigin=\"https://main.d2e2qy7yqilyn0.amplifyapp.com/" CognitoDomainPrefix=\"claimguard-ai\""
+parameter_overrides = "FrontendOrigin=\"https://main.d2e2qy7yqilyn0.amplifyapp.com\" CognitoDomainPrefix=\"claimguard-ai\""
 
 [default.package.parameters]
 resolve_s3 = true

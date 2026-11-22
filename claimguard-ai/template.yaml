@@ -172,8 +172,10 @@ Resources:
         - COGNITO
       CallbackURLs:
         - !Ref FrontendOrigin
+        - !Sub "${FrontendOrigin}/"
       LogoutURLs:
         - !Ref FrontendOrigin
+        - !Sub "${FrontendOrigin}/"
       PreventUserExistenceErrors: ENABLED
 
   AdjusterUserGroup:
