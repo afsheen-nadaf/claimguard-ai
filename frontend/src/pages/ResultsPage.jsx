@@ -142,8 +142,9 @@ export default function ResultsPage({ record, onRetry, navigate }) {
     { id: "consistency", label: "Consistency", check: screeningChecks.consistency, gradient: "from-purple-400 to-purple-300" },
   ];
 
-  const flaggedChecks = checks.filter(c => c.check.result?.state === "review");
-  const passedChecks = checks.filter(c => c.check.result?.state === "pass");
+  const flaggedChecks = checks.filter((c) => c.check.result?.state === "review");
+  const passedChecks = checks.filter((c) => c.check.result?.state === "pass");
+  const skippedChecks = checks.filter((c) => c.check.result?.state === "skipped");
 
   const timelineEvents = [
     { icon: "upload", title: "Claim Submitted", time: formatDateTime(record.submittedAt), type: "info" },
@@ -253,6 +254,7 @@ export default function ResultsPage({ record, onRetry, navigate }) {
           riskScore={riskScore}
           flaggedChecks={flaggedChecks}
           passedChecks={passedChecks}
+          skippedChecks={skippedChecks}
         />
 
         {/* Main Content */}

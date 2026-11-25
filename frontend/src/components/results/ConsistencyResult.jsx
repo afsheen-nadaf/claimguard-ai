@@ -14,13 +14,29 @@ const FLAG_TONE = {
 export default function ConsistencyResult({ result }) {
   if (!result) return null;
 
-  if (result.kind === "skipped") {
+  const isSkipped =
+    result.kind === "skipped" ||
+    result.status === "SKIPPED" ||
+    result.state === "skipped" ||
+    (result.documentsAnalyzed ?? 0) < 2;
+
+  if (isSkipped) {
+    const reasonText =
+      result.skipReason ||
+      ((result.documentsAnalyzed ?? 0) === 0
+        ? "0 documents"
+        : `${result.documentsAnalyzed} document`);
+
     return (
       <Callout tone="info">
-        <strong className="font-semibold text-purple-100">Cross-document comparison skipped.</strong>
-        <p className="text-purple-200">{result.label}</p>
+        <strong className="font-semibold text-purple-100">
+          Cross-document consistency skipped ({reasonText}).
+        </strong>
+        <p className="text-purple-200">
+          {result.message || "Not enough documents with extractable data for cross-document comparison."}
+        </p>
         <p className="text-sm text-purple-300">
-          Upload at least two documents with extractable data to enable cross-document consistency checking.
+          Upload at least two documents with extractable data to compare fields across documents.
         </p>
       </Callout>
     );
@@ -85,7 +101,11 @@ export default function ConsistencyResult({ result }) {
               className={`border ${borderColor} rounded-xl p-4 ${bgColor} space-y-3`}
             >
               <div className="flex items-center gap-2 flex-wrap">
-                <Icon name="alert" size={18} className={tone === "danger" ? "text-red-400" : "text-amber-400"} />
+                <Icon
+                  name="alert"
+                  size={18}
+                  className={tone === "danger" ? "text-red-400" : "text-amber-400"}
+                />
                 <strong className={`text-sm font-semibold ${textColor}`}>{flag.label}</strong>
                 <code className="ml-auto text-xs font-mono bg-black/20 px-2 py-0.5 rounded border border-white/10">
                   {flag.code}
@@ -99,7 +119,10 @@ export default function ConsistencyResult({ result }) {
                       key={fileName}
                       className="grid grid-cols-[minmax(120px,40%),minmax(0,1fr)] gap-3 py-2 border-b border-white/5 last:border-0"
                     >
-                      <dt className="text-xs text-purple-400 overflow-hidden text-ellipsis whitespace-nowrap" title={fileName}>
+                      <dt
+                        className="text-xs text-purple-400 overflow-hidden text-ellipsis whitespace-nowrap"
+                        title={fileName}
+                      >
                         {fileName}
                       </dt>
                       <dd className="text-sm font-semibold text-white">{value}</dd>

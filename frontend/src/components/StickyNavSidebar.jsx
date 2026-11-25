@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 import Icon from "./Icon";
 
-export default function StickyNavSidebar({ riskScore, flaggedChecks, passedChecks }) {
+export default function StickyNavSidebar({
+  riskScore,
+  flaggedChecks,
+  passedChecks,
+  skippedChecks = [],
+}) {
   const [activeSection, setActiveSection] = useState("overview");
 
   useEffect(() => {
@@ -117,6 +122,30 @@ export default function StickyNavSidebar({ riskScore, flaggedChecks, passedCheck
                   onClick={() => scrollToSection(`section-${check.id}`)}
                 >
                   <Icon name="check" size={16} />
+                  <span className="truncate">{check.label}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Skipped Checks */}
+      {skippedChecks.length > 0 && (
+        <div className="mb-7">
+          <div className="flex items-center gap-2 text-[10px] font-bold tracking-[0.15em] text-purple-300 uppercase mb-3 px-1">
+            <Icon name="info" size={13} />
+            Skipped ({skippedChecks.length})
+          </div>
+          <ul className="space-y-1.5">
+            {skippedChecks.map((check) => (
+              <li key={check.id}>
+                <button
+                  type="button"
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-purple-200 bg-purple-950/30 hover:bg-purple-900/40 hover:text-white border border-purple-800/40 hover:border-purple-700/60 transition-all"
+                  onClick={() => scrollToSection(`section-${check.id}`)}
+                >
+                  <Icon name="info" size={16} />
                   <span className="truncate">{check.label}</span>
                 </button>
               </li>

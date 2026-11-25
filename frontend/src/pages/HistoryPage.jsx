@@ -381,12 +381,29 @@ export default function HistoryPage({
                             : evidenceFiles.length
                               ? `${pdfCount} PDF · ${imageCount} photo${imageCount === 1 ? "" : "s"}`
                               : "No files";
-                        const forensicsSkipped = summary.counts.skipped > 0;
+                        const skippedEntries = CHECK_ORDER
+                          .map((key) => ({ key, check: screeningChecks[key] }))
+                          .filter(
+                            ({ check }) =>
+                              check?.status === "done" && check?.result?.state === "skipped"
+                          );
                         const finishedChecks = CHECK_ORDER.filter((key) => {
                           const check = screeningChecks[key];
                           if (!["done", "error"].includes(check?.status)) return false;
-                          return !(key === "forensics" && forensicsSkipped);
+                          return check?.result?.state !== "skipped";
                         }).length;
+                        const skipSummaryText = skippedEntries
+                          .map(({ key, check }) => {
+                            if (key === "forensics") return "Forensics skipped · no photos";
+                            if (key === "consistency") {
+                              const reason =
+                                check?.result?.skipReason ||
+                                `${check?.result?.documentsAnalyzed ?? 0} documents`;
+                              return `Consistency skipped · ${reason}`;
+                            }
+                            return `${key} skipped`;
+                          })
+                          .join(" · ");
 
                         const isProcessing =
                           r.screeningStatus === "RUNNING" || summary.key === "progress";
@@ -463,10 +480,8 @@ export default function HistoryPage({
                                 ) : (
                                   <div className="history-checks">
                                     <span className="whitespace-nowrap">{finishedChecks}/{CHECK_ORDER.length} completed</span>
-                                    {forensicsSkipped && (
-                                      <span className="history-check-detail">
-                                        Image forensics skipped · no photos
-                                      </span>
+                                    {skipSummaryText && (
+                                      <span className="history-check-detail">{skipSummaryText}</span>
                                     )}
                                   </div>
                                 )}

@@ -606,16 +606,25 @@ export function interpretConsistency(response) {
   const rawStatus = response.status || "UNKNOWN";
   const flags = Array.isArray(response.flags) ? response.flags : [];
   const summary = response.summary || null;
+  const documentsAnalyzed = response.documentsAnalyzed || 0;
 
   if (rawStatus === "SKIPPED") {
+    const skipReason =
+      response.skipReason ||
+      (documentsAnalyzed === 0
+        ? "0 documents"
+        : `${documentsAnalyzed} document${documentsAnalyzed === 1 ? "" : "s"}`);
+
     return {
-      state: "inconclusive",
+      state: "skipped",
       kind: "skipped",
-      label: response.message || "Not enough documents for cross-document comparison",
+      skipped: true,
+      skipReason,
+      label: response.message || `Skipped (${skipReason})`,
       rawStatus,
       flags,
       summary,
-      documentsAnalyzed: response.documentsAnalyzed || 0,
+      documentsAnalyzed,
     };
   }
 
@@ -627,7 +636,7 @@ export function interpretConsistency(response) {
       rawStatus,
       flags,
       summary,
-      documentsAnalyzed: response.documentsAnalyzed || 0,
+      documentsAnalyzed,
     };
   }
 
@@ -639,7 +648,7 @@ export function interpretConsistency(response) {
     rawStatus,
     flags,
     summary,
-    documentsAnalyzed: response.documentsAnalyzed || 0,
+    documentsAnalyzed,
   };
 }
 
