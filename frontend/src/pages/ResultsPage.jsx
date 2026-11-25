@@ -494,7 +494,9 @@ export default function ResultsPage({ record, onRetry, navigate }) {
                   label={
                     check.result?.state === "skipped"
                       ? "Skipped · no images"
-                      : undefined
+                      : check.result?.kind === "skipped"
+                        ? "Skipped"
+                        : undefined
                   }
                 />
               </div>

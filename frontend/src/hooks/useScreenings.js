@@ -388,14 +388,16 @@ export function useScreenings(userId, role) {
           finishedAt: Date.now(),
         };
         patchCheck(id, key, checkResult);
-        if (role === "adjuster") {
+        if (role === "adjuster" || key === "consistency") {
           try {
             await persistScreeningResult(id, key, checkResult);
             patchCheck(id, key, { persistenceSource: "authenticated-client" });
           } catch (error) {
             console.error(`[useScreenings] Could not persist ${key} result:`, error);
             patchCheck(id, key, { persistenceError: error.message });
-            toast.error(`${CHECKS[key].title} completed, but its result was not saved to claim history.`);
+            if (role === "adjuster") {
+              toast.error(`${CHECKS[key].title} completed, but its result was not saved to claim history.`);
+            }
           }
         }
       } catch (error) {
@@ -407,7 +409,7 @@ export function useScreenings(userId, role) {
           finishedAt: Date.now(),
         };
         patchCheck(id, key, checkResult);
-        if (role === "adjuster") {
+        if (role === "adjuster" || key === "consistency") {
           try {
             await persistScreeningResult(id, key, checkResult);
           } catch (persistError) {
