@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import Icon from "./Icon";
-import { REGION } from "../api/config";
 
 const ADJUSTER_NAV = [
   { id: "overview", href: "#/", label: "OVERVIEW", icon: "grid" },
@@ -79,15 +78,6 @@ export default function AppShell({
           </nav>
 
           <div className="flex items-center gap-3 flex-shrink-0">
-            {REGION && (
-              <div
-                className="inline-flex items-center gap-2 text-[11.5px] font-semibold text-purple-400 bg-[#251d33] border border-purple-800/30 rounded-full px-3 py-1.5 whitespace-nowrap"
-                title="The AWS region the screening API is deployed in"
-              >
-                <span className="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_0_3px_rgba(168,85,247,0.2)]" aria-hidden="true" />
-                AWS {REGION}
-              </div>
-            )}
             <div className="flex items-center gap-2 text-right">
               <div className="block min-w-0 max-w-[140px]">
                 <p className="truncate text-[10px] font-semibold text-white" title={account?.email}>
