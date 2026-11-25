@@ -294,7 +294,7 @@ export default function ImageForensicsSection({ record, check, onRetry }) {
           <div className="forensics-pipeline-note note-skipped">
             <Spinner label="" />
             <div>
-              <strong>Analyzing uploaded image(s) with AWS Lambda &amp; Hugging Face ZeroGPU…</strong>
+              <strong>Analyzing uploaded image(s) with AWS Lambda container forensic...</strong>
               <p className="muted small">
                 Running Smaug AI detection, parsing EXIF metadata, extracting DCT quantization matrices, and calculating edge variance.
               </p>

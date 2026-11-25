@@ -64,8 +64,7 @@ export default function AiGenerationCard({ aiGeneration, doc }) {
         <div className="card-title-wrap">
           <h3 className="card-title">1. AI-Generation Screening (Smaug)</h3>
           <p className="card-description">
-            Deep-learning screening for synthetic AI-generated imagery hosted on Hugging Face ZeroGPU (<code>{modelName}</code>).
-          </p>
+Deep-learning screening for synthetic AI-generated imagery using abacusai/Smaug-AI-Image-Detector executed locally inside the AWS Lambda container          </p>
         </div>
         <div className="card-header-actions">
           <StatusBadge
@@ -100,7 +99,7 @@ export default function AiGenerationCard({ aiGeneration, doc }) {
             <strong>AI-generation detector error</strong>
             <p>
               {aiGeneration.error ||
-                "The Smaug AI detector encountered an issue analyzing this image. The Hugging Face Space may be temporarily unreachable or warming up."}
+                "The Smaug AI detector encountered an issue analyzing this image. The local model runtime in the Lambda container may be starting up or temporarily unavailable."}
             </p>
             <p className="muted small mt">
               <strong>Note:</strong> A screening score is not available. To avoid false assurance, the score is not assumed to be 0%. Other forensic checks remain available below.

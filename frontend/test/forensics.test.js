@@ -173,7 +173,7 @@ describe("Forensics Data Helpers", () => {
   it("does not report score of 0% when Smaug is unavailable or returns an error", () => {
     const rawError = {
       status: "ERROR",
-      error: "Hugging Face ZeroGPU Space timed out",
+      error: "Local Smaug detector inference timed out",
     };
 
     const normalizedError = normalizeAiGeneration(rawError);
@@ -181,7 +181,7 @@ describe("Forensics Data Helpers", () => {
     assert.equal(normalizedError.isCompleted, false);
     assert.equal(normalizedError.score, null);
     assert.equal(normalizedError.percentage, null);
-    assert.equal(normalizedError.error, "Hugging Face ZeroGPU Space timed out");
+    assert.equal(normalizedError.error, "Local Smaug detector inference timed out");
 
     const normalizedEmpty = normalizeAiGeneration(null);
     assert.equal(normalizedEmpty, null);
