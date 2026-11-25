@@ -3,8 +3,9 @@ import { useState } from "react";
 import Icon from "../Icon";
 import { Callout } from "../ui";
 import { formatDate, formatINR } from "../../lib/format";
+import { extractForensicsOverview } from "../../lib/forensics";
 
-export default function DuplicateResult({ result, claimId }) {
+export default function DuplicateResult({ result, claimId, record }) {
   const [showImageDetails, setShowImageDetails] = useState(false);
   const [showImageIds, setShowImageIds] = useState({});
   const [showAllMatches, setShowAllMatches] = useState(false);
@@ -12,6 +13,7 @@ export default function DuplicateResult({ result, claimId }) {
   const imageMatches = result?.imageMatches || [];
   const matchCount = Math.max(matches.length, result?.matchCount || 0);
   const imageMatchCount = Math.max(imageMatches.length, result?.imageMatchCount || 0);
+  const imagesSubmitted = extractForensicsOverview(record).imagesSubmitted;
 
   return (
     <>
@@ -220,12 +222,21 @@ export default function DuplicateResult({ result, claimId }) {
           </div>
         ) : (
           <div className="empty-inline-state">
-            <Icon name="checkCircle" size={18} className="text-success" />
+            <Icon
+              name={imagesSubmitted === 0 ? "info" : "checkCircle"}
+              size={18}
+              className={imagesSubmitted === 0 ? "text-purple-400" : "text-success"}
+            />
             <div>
-              <strong className="text-[#f5f0e8]">No Image Matches Found</strong>
+              <strong className="text-[#f5f0e8]">
+                {imagesSubmitted === 0
+                  ? "Image duplicate check not performed"
+                  : "No Image Matches Found"}
+              </strong>
               <p className="muted small">
-                Perceptual hashing (pHash) found no visual duplicates matching reference or
-                previously submitted claim images within the similarity threshold.
+                {imagesSubmitted === 0
+                  ? "No images were uploaded for this claim."
+                  : "Perceptual hashing (pHash) found no visual duplicates matching reference or previously submitted claim images within the similarity threshold."}
               </p>
             </div>
           </div>

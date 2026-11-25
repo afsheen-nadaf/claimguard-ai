@@ -532,7 +532,7 @@ export default function ResultsPage({ record, onRetry, navigate }) {
               </div>
               <div className="bg-gradient-to-br from-[#1a1425]/80 to-[#251d33]/60 backdrop-blur-md border border-purple-700/30 rounded-2xl p-8 shadow-xl">
                 {id === "policy" && <PolicyResult result={check.result || {}} policyNumber={claim.policyNumber} />}
-                {id === "duplicate" && <DuplicateResult result={check.result || {}} claimId={record.id} />}
+                {id === "duplicate" && <DuplicateResult result={check.result || {}} claimId={record.id} record={record} />}
                 {id === "outlier" && <OutlierResult result={check.result || { metrics: {}, details: [] }} claim={claim} />}
                 {id === "forensics" && <ImageForensicsSection record={record} check={check} onRetry={() => onRetry(record, "forensics")} />}
                 {id === "evidence" && <EvidenceResult result={check.result || {}} />}
