@@ -507,8 +507,8 @@ export function useClaimDraft() {
       const claimId = ensureClaimId();
 
       // Pass the S3 object keys and content types to the screening runner.
-      // Include extractedData so the cross-document consistency check can
-      // compare fields across documents without calling the backend again.
+      // Include extractedData so consistency checks can compare document fields
+      // without calling the extraction backend again.
       onReady({
         claimId,
         claim: {

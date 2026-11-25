@@ -9,8 +9,8 @@
 //
 // All findings are investigation signals for human review, not proof of fraud.
 
-import { postJson } from "../api/client";
-import { ENDPOINTS } from "../api/config";
+import { postJson } from "../api/client.js";
+import { ENDPOINTS } from "../api/config.js";
 
 const COMPARABLE_FIELDS = [
   { field: "policyNumber", label: "Policy number", code: "POLICY_NUMBER_MISMATCH" },
@@ -65,17 +65,22 @@ function formatValue(value, field) {
 
 function isImageFile(doc) {
   const type = String(doc?.type || doc?.contentType || "").toLowerCase();
-  const name = String(doc?.name || doc?.key || "").toLowerCase();
-  return ["image/jpeg", "image/png"].includes(type) || /\.(jpe?g|png)$/.test(name);
+  const names = [doc?.name, doc?.key, doc?.s3Key]
+    .filter(Boolean)
+    .map((name) => String(name).toLowerCase());
+  return (
+    ["image/jpeg", "image/jpg", "image/png"].includes(type) ||
+    names.some((name) => /\.(jpe?g|png)$/.test(name))
+  );
 }
 
 async function comparePhotosWithBedrock(claimId, claim, imageDocs) {
   if (!ENDPOINTS.validateEvidence) {
     return {
-      status: "SKIPPED",
+      status: "ERROR",
       reason: "Endpoint not configured",
-      photosCompared: imageDocs.length,
-      verdict: "SKIPPED",
+      photosCompared: 0,
+      verdict: "ERROR",
       summary: "Cross-evidence photo endpoint is not configured.",
       observations: [],
     };
@@ -122,7 +127,8 @@ export async function runConsistencyCheck(documents = [], claimId = null, claim 
   const withExtraction = allDocs.filter(
     (d) => d.extractedData && typeof d.extractedData === "object"
   );
-  const imageDocs = allDocs.filter((d) => isImageFile(d) && (d.s3Key || d.key));
+  const detectedImages = allDocs.filter(isImageFile);
+  const imageDocs = detectedImages.filter((d) => d.s3Key || d.key);
 
   const flags = [];
   let fieldsChecked = 0;
@@ -194,7 +200,23 @@ export async function runConsistencyCheck(documents = [], claimId = null, claim 
   }
 
   let evidenceComparison = null;
-  if (imageDocs.length >= 2 && claimId) {
+  if (detectedImages.length >= 2 && imageDocs.length < 2) {
+    evidenceComparison = {
+      status: "ERROR",
+      verdict: "ERROR",
+      photosCompared: 0,
+      summary: "Two photos were detected, but their storage keys are missing.",
+      observations: [],
+    };
+  } else if (imageDocs.length >= 2 && !claimId) {
+    evidenceComparison = {
+      status: "ERROR",
+      verdict: "ERROR",
+      photosCompared: 0,
+      summary: "Two photos were detected, but the claim ID is missing.",
+      observations: [],
+    };
+  } else if (imageDocs.length >= 2) {
     try {
       evidenceComparison = await comparePhotosWithBedrock(claimId, claim, imageDocs);
       if (evidenceComparison?.verdict === "POTENTIAL_MISMATCH") {
@@ -224,20 +246,23 @@ export async function runConsistencyCheck(documents = [], claimId = null, claim 
   const hasPhotoComparison = Boolean(
     evidenceComparison && ["CONSISTENT", "REVIEW"].includes(evidenceComparison.status)
   );
+  const comparisonError = evidenceComparison?.status === "ERROR";
 
   if (!hasDocComparison && !hasPhotoComparison) {
-    const skipReason =
-      allDocs.length === 0
-        ? "0 documents"
-        : imageDocs.length === 1 && withExtraction.length < 2
-          ? "1 photo, <2 docs"
-          : `${withExtraction.length} document${withExtraction.length === 1 ? "" : "s"}`;
+    const hasEnoughPotentialInputs =
+      withExtraction.length >= 2 || detectedImages.length >= 2;
+    const status = comparisonError || hasEnoughPotentialInputs ? "INCONCLUSIVE" : "SKIPPED";
+    const skipReason = allDocs.length === 0
+      ? "No files uploaded"
+      : `${allDocs.length} file${allDocs.length === 1 ? "" : "s"} uploaded; ${withExtraction.length} document${withExtraction.length === 1 ? "" : "s"} with extracted data and ${detectedImages.length} photo${detectedImages.length === 1 ? "" : "s"} detected`;
 
     return {
-      status: "SKIPPED",
-      skipReason,
+      status,
+      ...(status === "SKIPPED" ? { skipReason } : {}),
       documentsAnalyzed: withExtraction.length,
       totalDocuments: allDocs.length,
+      totalFiles: allDocs.length,
+      photosDetected: detectedImages.length,
       flags: [],
       summary: {
         documentsWithExtraction: withExtraction.length,
@@ -245,19 +270,27 @@ export async function runConsistencyCheck(documents = [], claimId = null, claim 
         mismatchesFound: 0,
       },
       evidenceComparison,
-      message:
-        evidenceComparison?.status === "ERROR"
-          ? evidenceComparison.summary
-          : "Not enough documents or multi-photo evidence for cross-document/evidence comparison.",
+      message: comparisonError
+        ? evidenceComparison.summary || "Photo comparison could not be completed."
+        : status === "SKIPPED"
+          ? "Not enough uploaded files with extractable document data or photos to compare."
+          : "Consistency comparison could not be completed with the available file data.",
     };
   }
 
   const mismatchCount = flags.length;
+  const status = mismatchCount > 0
+    ? "REVIEW"
+    : comparisonError
+      ? "INCONCLUSIVE"
+      : "CONSISTENT";
 
   return {
-    status: mismatchCount > 0 ? "REVIEW" : "CONSISTENT",
+    status,
     documentsAnalyzed: withExtraction.length,
     totalDocuments: allDocs.length,
+    totalFiles: allDocs.length,
+    photosDetected: detectedImages.length,
     flags,
     summary: {
       documentsWithExtraction: withExtraction.length,
@@ -268,6 +301,8 @@ export async function runConsistencyCheck(documents = [], claimId = null, claim 
     message:
       mismatchCount > 0
         ? `${mismatchCount} inconsistency${mismatchCount === 1 ? "" : "ies"} detected.`
+        : comparisonError
+          ? `Document comparison completed, but photo comparison could not be completed: ${evidenceComparison.summary || "No details were returned."}`
         : hasDocComparison && hasPhotoComparison
           ? `All ${fieldsChecked} comparable document field${fieldsChecked === 1 ? "" : "s"} and ${evidenceComparison.photosCompared} photos appear consistent.`
           : hasPhotoComparison

@@ -13,7 +13,7 @@ const STORAGE_KEY = "claimguard_screenings";
 const PAGE_SIZE = 50;
 // Default to backend Step Functions pipeline unless explicitly disabled.
 const USE_PIPELINE = import.meta.env.VITE_USE_PIPELINE !== "false";
-// Everything except the browser-only consistency check runs in the pipeline.
+// Everything except browser-only document & image consistency runs in the pipeline.
 const PIPELINE_KEYS = CHECK_ORDER.filter((key) => key !== "consistency");
 
 function storageKey(userId) {
@@ -55,10 +55,12 @@ function mapCloudClaim(claim, role) {
               status: "done",
               raw: { skipped: true, reason: "BROWSER_ONLY" },
               result: {
-                status: "clear",
-                headline: "Not run in background pipeline",
-                summary: "Cross-document consistency runs during interactive document upload.",
-                details: [],
+                state: "skipped",
+                kind: "skipped",
+                skipped: true,
+                skipReason: "Not run in background pipeline",
+                label: "Not run in background pipeline",
+                message: "Document & image consistency runs during interactive claim submission.",
               },
               error: null,
             }
@@ -141,7 +143,7 @@ function mergeChecks(existingChecks = {}, incomingChecks = {}) {
       continue;
     }
 
-    // Preserve interactive cross-document consistency results over background placeholders.
+    // Preserve interactive document & image consistency results over background placeholders.
     if (
       key === "consistency" &&
       existing?.status === "done" &&

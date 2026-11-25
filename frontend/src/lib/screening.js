@@ -589,14 +589,14 @@ export function interpretForensics(response) {
   };
 }
 
-// ---------- cross-document consistency ----------
+// ---------- document & image consistency ----------
 
 export function interpretConsistency(response) {
   if (!response) {
     return {
       state: "inconclusive",
       kind: "unknown",
-      label: "No consistency response returned",
+      label: "No document & image consistency response returned",
       rawStatus: null,
       flags: [],
       summary: null,
@@ -607,14 +607,16 @@ export function interpretConsistency(response) {
   const flags = Array.isArray(response.flags) ? response.flags : [];
   const summary = response.summary || null;
   const documentsAnalyzed = response.documentsAnalyzed || 0;
+  const totalFiles = response.totalFiles ?? response.totalDocuments ?? null;
+  const photosDetected = response.photosDetected ?? null;
   const evidenceComparison = response.evidenceComparison || null;
 
   if (rawStatus === "SKIPPED") {
     const skipReason =
       response.skipReason ||
-      (documentsAnalyzed === 0
-        ? "0 documents"
-        : `${documentsAnalyzed} document${documentsAnalyzed === 1 ? "" : "s"}`);
+      (totalFiles === 0
+        ? "No files uploaded"
+        : `${documentsAnalyzed} document${documentsAnalyzed === 1 ? "" : "s"} with extracted data`);
 
     return {
       state: "skipped",
@@ -626,6 +628,23 @@ export function interpretConsistency(response) {
       flags,
       summary,
       documentsAnalyzed,
+      totalFiles,
+      photosDetected,
+      evidenceComparison,
+    };
+  }
+
+  if (rawStatus === "INCONCLUSIVE" || rawStatus === "ERROR") {
+    return {
+      state: "inconclusive",
+      kind: "inconclusive",
+      label: response.message || "Document & image consistency comparison could not be completed",
+      rawStatus,
+      flags,
+      summary,
+      documentsAnalyzed,
+      totalFiles,
+      photosDetected,
       evidenceComparison,
     };
   }
@@ -634,11 +653,13 @@ export function interpretConsistency(response) {
     return {
       state: "pass",
       kind: "consistent",
-      label: response.message || "All documents are consistent",
+      label: response.message || "Documents and images appear consistent",
       rawStatus,
       flags,
       summary,
       documentsAnalyzed,
+      totalFiles,
+      photosDetected,
       evidenceComparison,
     };
   }
@@ -647,11 +668,13 @@ export function interpretConsistency(response) {
   return {
     state: "review",
     kind: "mismatch",
-    label: response.message || `${flags.length} inconsistencies found across documents`,
+    label: response.message || `${flags.length} inconsistencies found across documents or images`,
     rawStatus,
     flags,
     summary,
     documentsAnalyzed,
+    totalFiles,
+    photosDetected,
     evidenceComparison,
   };
 }
@@ -1008,7 +1031,7 @@ export function calculateRiskScore(checks) {
   // Evidence relevance: +30 if mismatch
   if (checks.evidence?.result?.state === "review") score += 30;
 
-  // Cross-document consistency: +20 if inconsistent
+  // Document & image consistency: +20 if inconsistent
   if (checks.consistency?.result?.state === "review") score += 20;
 
   return Math.min(score, 100);

@@ -37,7 +37,7 @@ const CHECK_CHART_LABELS = {
   outlier: "Claim amount outliers",
   forensics: "Image forensics",
   evidence: "Evidence relevance",
-  consistency: "Document consistency",
+  consistency: "Document & image consistency",
 };
 
 const TOOLTIP_STYLE = {

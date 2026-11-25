@@ -64,7 +64,7 @@ export const CHECKS = {
 
   consistency: {
     key: "consistency",
-    title: "Cross-Document Consistency",
+    title: "Document & Image Consistency",
     description: "Compares details extracted from documents and cross-checks multiple photos for visual consistency.",
     icon: "layers",
     run: (claimId, claim, documents) =>

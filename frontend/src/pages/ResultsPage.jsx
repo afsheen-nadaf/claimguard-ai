@@ -139,21 +139,48 @@ export default function ResultsPage({ record, onRetry, navigate }) {
     { id: "outlier", label: "Outlier", check: screeningChecks.outlier, gradient: "from-purple-700 to-purple-600" },
     { id: "forensics", label: "Forensics", check: screeningChecks.forensics, gradient: "from-purple-600 to-purple-500" },
     { id: "evidence", label: "Evidence", check: screeningChecks.evidence, gradient: "from-purple-500 to-purple-400" },
-    { id: "consistency", label: "Consistency", check: screeningChecks.consistency, gradient: "from-purple-400 to-purple-300" },
+    { id: "consistency", label: "Docs & Images", check: screeningChecks.consistency, gradient: "from-purple-400 to-purple-300" },
   ];
 
   const flaggedChecks = checks.filter((c) => c.check.result?.state === "review");
   const passedChecks = checks.filter((c) => c.check.result?.state === "pass");
   const skippedChecks = checks.filter((c) => c.check.result?.state === "skipped");
+  const incompleteChecks = checks.filter(
+    (c) =>
+      c.check.status === "error" ||
+      c.check.result?.state === "inconclusive"
+  );
 
   const timelineEvents = [
     { icon: "upload", title: "Claim Submitted", time: formatDateTime(record.submittedAt), type: "info" },
     { icon: "play", title: "Screening Started", time: formatDateTime(record.submittedAt), type: "info" },
     ...checks.map(c => ({
-      icon: c.check.result?.state === "pass" ? "checkCircle" : c.check.result?.state === "review" ? "alertTriangle" : c.check.result?.state === "skipped" ? "info" : "clock",
-      title: `${CHECKS[c.id].title} ${c.check.result?.state === "pass" ? "Passed" : c.check.result?.state === "review" ? "Flagged" : c.check.result?.state === "skipped" ? "Skipped" : "Completed"}`,
+      icon: c.check.result?.state === "pass"
+        ? "checkCircle"
+        : c.check.result?.state === "review"
+          ? "alertTriangle"
+          : c.check.result?.state === "skipped"
+            ? "info"
+            : c.check.result?.state === "inconclusive" || c.check.status === "error"
+              ? "alertTriangle"
+              : "clock",
+      title: `${CHECKS[c.id].title} ${
+        c.check.result?.state === "pass"
+          ? "Passed"
+          : c.check.result?.state === "review"
+            ? "Flagged"
+            : c.check.result?.state === "skipped"
+              ? "Skipped"
+              : c.check.result?.state === "inconclusive" || c.check.status === "error"
+                ? "Incomplete"
+                : "Completed"
+      }`,
       time: formatDateTime(record.submittedAt),
-      type: c.check.result?.state === "pass" ? "success" : c.check.result?.state === "review" ? "warning" : "info",
+      type: c.check.result?.state === "pass"
+        ? "success"
+        : c.check.result?.state === "review" || c.check.result?.state === "inconclusive" || c.check.status === "error"
+          ? "warning"
+          : "info",
     })),
     { icon: "flag", title: "Ready for Review", time: formatDateTime(record.submittedAt), type: "warning" },
   ];
@@ -255,6 +282,7 @@ export default function ResultsPage({ record, onRetry, navigate }) {
           flaggedChecks={flaggedChecks}
           passedChecks={passedChecks}
           skippedChecks={skippedChecks}
+          incompleteChecks={incompleteChecks}
         />
 
         {/* Main Content */}
@@ -493,7 +521,9 @@ export default function ResultsPage({ record, onRetry, navigate }) {
                   state={check.result?.state || check.status}
                   label={
                     check.result?.state === "skipped"
-                      ? "Skipped · no images"
+                      ? id === "forensics"
+                        ? "Skipped · no images"
+                        : "Skipped"
                       : check.result?.kind === "skipped"
                         ? "Skipped"
                         : undefined
@@ -506,7 +536,9 @@ export default function ResultsPage({ record, onRetry, navigate }) {
                 {id === "outlier" && <OutlierResult result={check.result || { metrics: {}, details: [] }} claim={claim} />}
                 {id === "forensics" && <ImageForensicsSection record={record} check={check} onRetry={() => onRetry(record, "forensics")} />}
                 {id === "evidence" && <EvidenceResult result={check.result || {}} />}
-                {id === "consistency" && <ConsistencyResult result={check.result || {}} />}
+                {id === "consistency" && (
+                  <ConsistencyResult result={check.result} status={check.status} />
+                )}
               </div>
             </section>
           ))}

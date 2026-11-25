@@ -938,7 +938,7 @@ select:focus option:checked {
 .extraction-item-header strong { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .extraction-gaps { display: grid; gap: 2px; }
 
-/* ---------- Cross-document consistency results ---------- */
+/* ---------- Document and image consistency results ---------- */
 .consistency-flags { display: grid; gap: var(--s2); }
 .consistency-flag {
   border: 1px solid var(--border); border-radius: var(--radius);

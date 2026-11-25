@@ -399,7 +399,7 @@ export default function HistoryPage({
                               const reason =
                                 check?.result?.skipReason ||
                                 `${check?.result?.documentsAnalyzed ?? 0} documents`;
-                              return `Consistency skipped · ${reason}`;
+                              return `Document & image check skipped · ${reason}`;
                             }
                             return `${key} skipped`;
                           })

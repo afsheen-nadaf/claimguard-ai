@@ -12,53 +12,73 @@ const FLAG_TONE = {
   CROSS_EVIDENCE_PHOTO_MISMATCH: "warning",
 };
 
-export default function ConsistencyResult({ result }) {
-  if (!result) return null;
+export default function ConsistencyResult({ result, status }) {
+  if (!result) {
+    const message = status === "error"
+      ? "The consistency check failed before it could return a result."
+      : "Document & image consistency is still running.";
+    return (
+      <Callout tone={status === "error" ? "danger" : "info"}>
+        <strong className="font-semibold text-purple-100">{message}</strong>
+      </Callout>
+    );
+  }
 
   const evidenceComparison = result.evidenceComparison || null;
   const hasPhotoComparison = Boolean(
     evidenceComparison && ["CONSISTENT", "REVIEW"].includes(evidenceComparison.status)
   );
   const docsAnalyzed = result.documentsAnalyzed || 0;
+  const totalFiles = result.totalFiles ?? result.totalDocuments;
+  const photosDetected = result.photosDetected;
+  const isPipelinePlaceholder = result.skipReason === "Not run in background pipeline";
 
   const isSkipped =
     result.kind === "skipped" ||
     result.status === "SKIPPED" ||
-    result.state === "skipped" ||
-    (docsAnalyzed < 2 && !hasPhotoComparison);
+    result.state === "skipped";
 
   if (isSkipped) {
-    const reasonText =
-      result.skipReason ||
-      (docsAnalyzed === 0
-        ? "0 documents"
-        : `${docsAnalyzed} document${docsAnalyzed === 1 ? "" : "s"}`);
-
     return (
       <Callout tone="info">
         <strong className="font-semibold text-purple-100">
-          Cross-document consistency skipped ({reasonText}).
+          Document & image consistency skipped.
         </strong>
         <p className="text-purple-200">
-          {evidenceComparison?.status === "ERROR"
-            ? evidenceComparison.summary
-            : result.message || "Not enough documents or multi-photo evidence for comparison."}
+          {result.skipReason || result.message || "There was not enough eligible evidence to compare."}
         </p>
-        <p className="text-sm text-purple-300">
-          Upload at least two documents with extractable data or two or more photos to compare consistency.
-        </p>
+        {(totalFiles !== undefined || photosDetected !== undefined) && (
+          <p className="text-sm text-purple-300">
+            {totalFiles !== undefined && `${totalFiles} file${totalFiles === 1 ? "" : "s"} uploaded`}
+            {totalFiles !== undefined && photosDetected !== undefined && "; "}
+            {photosDetected !== undefined && `${photosDetected} photo${photosDetected === 1 ? "" : "s"} detected`}
+            {`; ${docsAnalyzed} document${docsAnalyzed === 1 ? "" : "s"} with extracted data`}
+          </p>
+        )}
+        {!isPipelinePlaceholder && (
+          <p className="text-sm text-purple-300">
+            Upload at least two documents with extractable data or two or more photos to compare documents and images.
+          </p>
+        )}
       </Callout>
     );
   }
 
   const flags = result.flags || [];
   const summary = result.summary;
+  const isIncomplete =
+    result.state === "inconclusive" ||
+    result.status === "INCONCLUSIVE" ||
+    result.status === "ERROR" ||
+    evidenceComparison?.status === "ERROR";
 
   return (
     <div className="space-y-6">
       <KeyValueList
         items={[
-          { label: "Documents analyzed", value: docsAnalyzed },
+          { label: "Files uploaded", value: totalFiles ?? "—" },
+          { label: "Documents with extracted data", value: docsAnalyzed },
+          { label: "Photos detected", value: photosDetected ?? "—" },
           { label: "Comparable fields checked", value: summary?.comparableFieldsChecked || 0 },
           ...(hasPhotoComparison
             ? [{ label: "Photos compared", value: evidenceComparison.photosCompared || 0 }]
@@ -67,12 +87,27 @@ export default function ConsistencyResult({ result }) {
         ]}
       />
 
-      {flags.length === 0 ? (
-        <Callout tone="success">
-          <strong className="font-semibold text-emerald-100">No consistency issues detected.</strong>
-          <p className="text-sm text-emerald-200">
+      {isIncomplete && (
+        <Callout tone="warning">
+          <strong className="font-semibold text-amber-100">Document & image consistency check incomplete.</strong>
+          <p className="text-sm text-amber-200">
             {result.message ||
-              "Comparable document fields and uploaded evidence photos appear consistent within this submission."}
+              evidenceComparison?.summary ||
+              "Some consistency comparisons could not be completed."}
+          </p>
+        </Callout>
+      )}
+
+      {flags.length === 0 ? (
+        <Callout tone={isIncomplete ? "warning" : "success"}>
+          <strong className={isIncomplete ? "font-semibold text-amber-100" : "font-semibold text-emerald-100"}>
+            {isIncomplete ? "No mismatch was found in the completed comparisons." : "No consistency issues detected."}
+          </strong>
+          <p className={isIncomplete ? "text-sm text-amber-200" : "text-sm text-emerald-200"}>
+            {isIncomplete
+              ? "A full comparison was not completed, so this result is not a consistency pass."
+              : result.message ||
+                "Comparable document fields and uploaded evidence photos appear consistent within this submission."}
           </p>
         </Callout>
       ) : (
@@ -165,7 +200,7 @@ export default function ConsistencyResult({ result }) {
       )}
 
       <p className="text-xs text-purple-400 leading-relaxed">
-        Cross-document and cross-evidence checks are screening signals for adjuster review, not
+        Document and image comparisons are screening signals for adjuster review, not
         proof of fraud.
       </p>
     </div>

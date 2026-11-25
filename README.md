@@ -19,7 +19,7 @@ Multi-layered fraud detection combining rule-based validation, statistical analy
 3. **Outlier Detection** - Statistical analysis using MAD (Median Absolute Deviation)
 4. **Image Forensics** - AI-generation detection, metadata analysis, compression artifacts
 5. **Evidence Relevance** - Bedrock-powered document-incident matching
-6. **Cross-Document Consistency** - Field mismatch detection
+6. **Document & Image Consistency** - Compares extracted document fields and checks uploaded photos for visual consistency
 
 ### 📊 **Risk Scoring**
 - Weighted algorithm: 0-100 scale

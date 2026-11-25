@@ -227,7 +227,7 @@ export default function ReviewStep({ draft, onBack, onEdit, onSubmit }) {
       <ExtractionSummary files={documents} prefilledFields={prefilledFields} />
       <br />
       <Callout tone="info">
-        On submit, policy validation, duplicate detection, amount outlier, image forensics, evidence relevance, and consistency checks run. Image forensics is skipped when no photos are attached. Findings are screening indicators for human review, not a fraud determination.
+        On submit, policy validation, duplicate detection, amount outlier, image forensics, evidence relevance, and document & image consistency checks run. Image forensics is skipped when no photos are attached. Findings are screening indicators for human review, not a fraud determination.
       </Callout>
 
       {submitError && <div className="stack-sm"><Callout tone="danger">{submitError}</Callout></div>}

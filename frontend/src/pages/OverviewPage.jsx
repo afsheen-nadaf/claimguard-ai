@@ -15,7 +15,7 @@ const CAPABILITIES = [
   { icon: "sliders", name: "Claim-amount outlier detection", note: "Robust statistical range check per claim type." },
   { icon: "image", name: "Image forensics", note: "Metadata, compression and AI-generation signals in photos." },
   { icon: "search", name: "Evidence relevance", note: "Checks that documents and photos match the reported incident." },
-  { icon: "layers", name: "Cross-document consistency", note: "Flags mismatched details across uploaded documents." },
+  { icon: "layers", name: "Document & image consistency", note: "Compares extracted document details and checks photos for visual consistency." },
 ];
 
 export default function OverviewPage({ records, navigate }) {

@@ -6,6 +6,7 @@ export default function StickyNavSidebar({
   flaggedChecks,
   passedChecks,
   skippedChecks = [],
+  incompleteChecks = [],
 }) {
   const [activeSection, setActiveSection] = useState("overview");
 
@@ -57,7 +58,7 @@ export default function StickyNavSidebar({
     { id: "section-outlier", label: "Outlier", icon: "sliders" },
     { id: "section-forensics", label: "Forensics", icon: "image" },
     { id: "section-evidence", label: "Evidence", icon: "search" },
-    { id: "section-consistency", label: "Consistency", icon: "layers" },
+    { id: "section-consistency", label: "Docs & Images", icon: "layers" },
     { id: "section-details", label: "Details", icon: "info" },
   ];
 
@@ -143,6 +144,29 @@ export default function StickyNavSidebar({
                 <button
                   type="button"
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-purple-200 bg-purple-950/30 hover:bg-purple-900/40 hover:text-white border border-purple-800/40 hover:border-purple-700/60 transition-all"
+                  onClick={() => scrollToSection(`section-${check.id}`)}
+                >
+                  <Icon name="info" size={16} />
+                  <span className="truncate">{check.label}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {incompleteChecks.length > 0 && (
+        <div className="mb-7">
+          <div className="flex items-center gap-2 text-[10px] font-bold tracking-[0.15em] text-amber-300 uppercase mb-3 px-1">
+            <Icon name="info" size={13} />
+            Incomplete ({incompleteChecks.length})
+          </div>
+          <ul className="space-y-1.5">
+            {incompleteChecks.map((check) => (
+              <li key={check.id}>
+                <button
+                  type="button"
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-amber-200 bg-amber-950/20 hover:bg-amber-900/40 hover:text-white border border-amber-800/30 hover:border-amber-700/50 transition-all"
                   onClick={() => scrollToSection(`section-${check.id}`)}
                 >
                   <Icon name="info" size={16} />
