@@ -11,6 +11,16 @@ export default function MetadataCard({ metadata, doc }) {
     metadata && !isError && (metadata.sha256 || metadata.imageFormat || metadata.width)
   );
 
+  const decimalCoords = (() => {
+    if (metadata?.latitude != null && metadata?.longitude != null) {
+      return `${metadata.latitude},${metadata.longitude}`;
+    }
+    const match = String(metadata?.gpsCoordinates || "").match(
+      /\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)/
+    );
+    return match ? `${match[1]},${match[2]}` : null;
+  })();
+
   async function copyHash(hash) {
     try {
       await navigator.clipboard.writeText(hash);
@@ -90,17 +100,15 @@ export default function MetadataCard({ metadata, doc }) {
                 value: (
                   <span className="inline-flex flex-wrap items-center gap-2">
                     <code>{metadata.gpsCoordinates}</code>
-                    {metadata.latitude != null && metadata.longitude != null && (
+                    {decimalCoords && (
                       <a
-                        href={`https://www.google.com/maps?q=${encodeURIComponent(
-                          `${metadata.latitude},${metadata.longitude}`
-                        )}`}
+                        href={`https://www.google.com/maps?q=${encodeURIComponent(decimalCoords)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="link-button inline-flex items-center gap-1"
                       >
                         <span>View in map</span>
-                        <Icon name="externalLink" size={13} />
+                        <Icon name="arrow" size={13} />
                       </a>
                     )}
                   </span>

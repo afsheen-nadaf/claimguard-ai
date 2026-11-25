@@ -52,10 +52,6 @@ export default function AiGenerationCard({ aiGeneration, doc }) {
           label: "Review threshold",
           value: "0.50 (50.00% signal strength triggers human review flag)",
         },
-        {
-          label: "Hosting environment",
-          value: "Hugging Face ZeroGPU · Zero-shot Smaug Detector",
-        },
       ]
     : [];
 
