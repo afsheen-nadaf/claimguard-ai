@@ -32,7 +32,7 @@ export default function ConsistencyResult({ result }) {
       result.skipReason ||
       (docsAnalyzed === 0
         ? "0 documents"
-        : `${docsAnalyzed} document`);
+        : `${docsAnalyzed} document${docsAnalyzed === 1 ? "" : "s"}`);
 
     return (
       <Callout tone="info">
@@ -40,7 +40,9 @@ export default function ConsistencyResult({ result }) {
           Cross-document consistency skipped ({reasonText}).
         </strong>
         <p className="text-purple-200">
-          {result.message || "Not enough documents or multi-photo evidence for comparison."}
+          {evidenceComparison?.status === "ERROR"
+            ? evidenceComparison.summary
+            : result.message || "Not enough documents or multi-photo evidence for comparison."}
         </p>
         <p className="text-sm text-purple-300">
           Upload at least two documents with extractable data or two or more photos to compare consistency.
