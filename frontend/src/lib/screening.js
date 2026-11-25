@@ -607,6 +607,7 @@ export function interpretConsistency(response) {
   const flags = Array.isArray(response.flags) ? response.flags : [];
   const summary = response.summary || null;
   const documentsAnalyzed = response.documentsAnalyzed || 0;
+  const evidenceComparison = response.evidenceComparison || null;
 
   if (rawStatus === "SKIPPED") {
     const skipReason =
@@ -625,6 +626,7 @@ export function interpretConsistency(response) {
       flags,
       summary,
       documentsAnalyzed,
+      evidenceComparison,
     };
   }
 
@@ -637,6 +639,7 @@ export function interpretConsistency(response) {
       flags,
       summary,
       documentsAnalyzed,
+      evidenceComparison,
     };
   }
 
@@ -649,6 +652,7 @@ export function interpretConsistency(response) {
     flags,
     summary,
     documentsAnalyzed,
+    evidenceComparison,
   };
 }
 

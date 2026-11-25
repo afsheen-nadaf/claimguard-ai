@@ -1,16 +1,17 @@
-// Cross-document consistency check.
+// Cross-document & cross-evidence consistency check.
 //
-// Compares fields extracted from multiple uploaded documents to detect
-// inconsistencies. For example: if the claim form says the incident date
-// is 15 Oct but the invoice says 20 Oct, that's a DATE_MISMATCH flag.
-//
-// This is a pure frontend check — no backend endpoint needed. It operates
-// on the extractedData that Bedrock already returned for each document.
+// 1. Compares extracted fields across multiple documents (policy number,
+//    incident date, claim amount, claim type, claimant name, claim number,
+//    and duplicate invoice numbers).
+// 2. When 2+ photos are uploaded, runs a Bedrock cross-evidence photo
+//    comparison to check whether the photos appear visually consistent
+//    with each other.
 //
 // All findings are investigation signals for human review, not proof of fraud.
 
-// Fields to compare across documents. Each entry maps the extractedData
-// field name to a human-readable label and the flag code to raise on mismatch.
+import { postJson } from "../api/client";
+import { ENDPOINTS } from "../api/config";
+
 const COMPARABLE_FIELDS = [
   { field: "policyNumber", label: "Policy number", code: "POLICY_NUMBER_MISMATCH" },
   { field: "incidentDate", label: "Incident date", code: "DATE_MISMATCH" },
@@ -20,7 +21,6 @@ const COMPARABLE_FIELDS = [
   { field: "claimNumber", label: "Claim number", code: "CLAIM_NUMBER_MISMATCH" },
 ];
 
-// Tolerance for amount comparison (₹1 to handle rounding differences).
 const AMOUNT_TOLERANCE = 1.0;
 
 function normalizeDate(value) {
@@ -63,111 +63,193 @@ function formatValue(value, field) {
   return String(value);
 }
 
-/**
- * Run the cross-document consistency check.
- *
- * @param {Array} documents — the documents array from the screening payload.
- *   Each document should have: { name, extractedData, ... }
- *   extractedData is the object returned by the Bedrock extraction endpoint.
- *
- * @returns {Object} — {
- *   status: "CONSISTENT" | "REVIEW" | "SKIPPED",
- *   documentsAnalyzed: number,
- *   totalDocuments: number,
- *   flags: [{ code, field, label, message, documents, values }],
- *   summary: { documentsWithExtraction, comparableFieldsChecked, mismatchesFound },
- *   message: string
- * }
- */
-export function runConsistencyCheck(documents) {
-  const withExtraction = (documents || []).filter(
-    (d) => d.extractedData && typeof d.extractedData === "object"
-  );
+function isImageFile(doc) {
+  const type = String(doc?.type || doc?.contentType || "").toLowerCase();
+  const name = String(doc?.name || doc?.key || "").toLowerCase();
+  return ["image/jpeg", "image/png"].includes(type) || /\.(jpe?g|png)$/.test(name);
+}
 
-  if (withExtraction.length < 2) {
+async function comparePhotosWithBedrock(claimId, claim, imageDocs) {
+  if (!ENDPOINTS.validateEvidence) {
     return {
       status: "SKIPPED",
+      reason: "Endpoint not configured",
+      photosCompared: imageDocs.length,
+      verdict: "SKIPPED",
+      summary: "Cross-evidence photo endpoint is not configured.",
+      observations: [],
+    };
+  }
+
+  const evidence = imageDocs.slice(0, 3).map((doc) => ({
+    key: doc.s3Key || doc.key,
+    contentType: doc.type || doc.contentType || "image/jpeg",
+  }));
+
+  const payload = await postJson(ENDPOINTS.validateEvidence, {
+    claimId,
+    claimType: claim?.claimType || "General",
+    incidentDescription: claim?.description || claim?.incidentDescription || "",
+    mode: "CROSS_EVIDENCE_PHOTOS",
+    evidence,
+  });
+
+  if (payload?.evidenceComparison) {
+    return payload.evidenceComparison;
+  }
+
+  const items = Array.isArray(payload?.evidenceResults) ? payload.evidenceResults : [];
+  const hasMismatch = payload?.overallVerdict === "POTENTIAL_MISMATCH";
+  return {
+    status: hasMismatch ? "REVIEW" : "CONSISTENT",
+    verdict: hasMismatch ? "POTENTIAL_MISMATCH" : payload?.overallVerdict || "CONSISTENT",
+    photosCompared: items.length || evidence.length,
+    summary:
+      payload?.message ||
+      (hasMismatch
+        ? "Potential visual discrepancies observed across uploaded photos."
+        : `Compared ${items.length || evidence.length} uploaded photos for visual consistency.`),
+    observations: items.map((item) => ({
+      fileName: item.fileName || item.key,
+      verdict: item.verdict || "UNCERTAIN",
+      detail: item.relevanceExplanation || item.detectedContent || "",
+    })),
+  };
+}
+
+export async function runConsistencyCheck(documents = [], claimId = null, claim = null) {
+  const allDocs = Array.isArray(documents) ? documents : [];
+  const withExtraction = allDocs.filter(
+    (d) => d.extractedData && typeof d.extractedData === "object"
+  );
+  const imageDocs = allDocs.filter((d) => isImageFile(d) && (d.s3Key || d.key));
+
+  const flags = [];
+  let fieldsChecked = 0;
+
+  if (withExtraction.length >= 2) {
+    for (const { field, label, code } of COMPARABLE_FIELDS) {
+      const pairs = withExtraction
+        .map((d) => ({
+          fileName: d.name,
+          value: d.extractedData[field],
+          documentType: d.extractedData.documentType,
+        }))
+        .filter((p) => p.value !== null && p.value !== undefined && p.value !== "");
+
+      if (pairs.length < 2) continue;
+
+      fieldsChecked++;
+
+      const firstValue = pairs[0].value;
+      const hasMismatch = pairs.some(
+        (p) => !valuesMatch(p.value, firstValue, field)
+      );
+
+      if (hasMismatch) {
+        const values = {};
+        for (const p of pairs) {
+          values[p.fileName] = formatValue(p.value, field);
+        }
+
+        flags.push({
+          code,
+          field,
+          label,
+          message: `${label} differs across uploaded documents`,
+          documents: pairs.map((p) => p.fileName),
+          values,
+        });
+      }
+    }
+
+    const invoiceEntries = withExtraction
+      .map((d) => ({
+        fileName: d.name,
+        invoiceNumber: d.extractedData.invoiceNumber,
+      }))
+      .filter((p) => p.invoiceNumber);
+
+    if (invoiceEntries.length >= 2) {
+      const seen = {};
+      for (const entry of invoiceEntries) {
+        const key = String(entry.invoiceNumber).trim().toLowerCase();
+        if (seen[key]) {
+          flags.push({
+            code: "DUPLICATE_INVOICE",
+            field: "invoiceNumber",
+            label: "Invoice number",
+            message: `Invoice number "${entry.invoiceNumber}" appears in multiple uploaded documents`,
+            documents: [seen[key], entry.fileName],
+            values: {
+              [seen[key]]: entry.invoiceNumber,
+              [entry.fileName]: entry.invoiceNumber,
+            },
+          });
+        } else {
+          seen[key] = entry.fileName;
+        }
+      }
+    }
+  }
+
+  let evidenceComparison = null;
+  if (imageDocs.length >= 2 && claimId) {
+    try {
+      evidenceComparison = await comparePhotosWithBedrock(claimId, claim, imageDocs);
+      if (evidenceComparison?.verdict === "POTENTIAL_MISMATCH") {
+        flags.push({
+          code: "CROSS_EVIDENCE_PHOTO_MISMATCH",
+          field: "evidencePhotos",
+          label: "Cross-evidence photo comparison",
+          message:
+            evidenceComparison.summary ||
+            "Potential visual inconsistency across uploaded photos",
+          documents: imageDocs.map((d) => d.name),
+          values: {},
+        });
+      }
+    } catch (error) {
+      evidenceComparison = {
+        status: "ERROR",
+        verdict: "UNCERTAIN",
+        photosCompared: imageDocs.length,
+        summary: error.message || "Could not compare photos via Bedrock.",
+        observations: [],
+      };
+    }
+  }
+
+  const hasDocComparison = withExtraction.length >= 2;
+  const hasPhotoComparison = Boolean(
+    evidenceComparison && ["CONSISTENT", "REVIEW"].includes(evidenceComparison.status)
+  );
+
+  if (!hasDocComparison && !hasPhotoComparison) {
+    const skipReason =
+      allDocs.length === 0
+        ? "0 documents"
+        : imageDocs.length === 1 && withExtraction.length < 2
+          ? "1 photo, <2 docs"
+          : `${withExtraction.length} document${withExtraction.length === 1 ? "" : "s"}`;
+
+    return {
+      status: "SKIPPED",
+      skipReason,
       documentsAnalyzed: withExtraction.length,
-      totalDocuments: (documents || []).length,
+      totalDocuments: allDocs.length,
       flags: [],
       summary: {
         documentsWithExtraction: withExtraction.length,
         comparableFieldsChecked: 0,
         mismatchesFound: 0,
       },
+      evidenceComparison,
       message:
-        withExtraction.length === 0
-          ? "No documents with extracted data — cross-document comparison was not performed."
-          : "Only one document with extracted data — cross-document comparison requires at least two.",
+        evidenceComparison?.status === "ERROR"
+          ? evidenceComparison.summary
+          : "Not enough documents or multi-photo evidence for cross-document/evidence comparison.",
     };
-  }
-
-  const flags = [];
-  let fieldsChecked = 0;
-
-  for (const { field, label, code } of COMPARABLE_FIELDS) {
-    const pairs = withExtraction
-      .map((d) => ({
-        fileName: d.name,
-        value: d.extractedData[field],
-        documentType: d.extractedData.documentType,
-      }))
-      .filter((p) => p.value !== null && p.value !== undefined && p.value !== "");
-
-    if (pairs.length < 2) continue;
-
-    fieldsChecked++;
-
-    const firstValue = pairs[0].value;
-    const hasMismatch = pairs.some(
-      (p) => !valuesMatch(p.value, firstValue, field)
-    );
-
-    if (hasMismatch) {
-      const values = {};
-      for (const p of pairs) {
-        values[p.fileName] = formatValue(p.value, field);
-      }
-
-      flags.push({
-        code,
-        field,
-        label,
-        message: `${label} differs across uploaded documents`,
-        documents: pairs.map((p) => p.fileName),
-        values,
-      });
-    }
-  }
-
-  // Check for duplicate invoice numbers within this upload set.
-  const invoiceEntries = withExtraction
-    .map((d) => ({
-      fileName: d.name,
-      invoiceNumber: d.extractedData.invoiceNumber,
-    }))
-    .filter((p) => p.invoiceNumber);
-
-  if (invoiceEntries.length >= 2) {
-    const seen = {};
-    for (const entry of invoiceEntries) {
-      const key = String(entry.invoiceNumber).trim().toLowerCase();
-      if (seen[key]) {
-        flags.push({
-          code: "DUPLICATE_INVOICE",
-          field: "invoiceNumber",
-          label: "Invoice number",
-          message: `Invoice number "${entry.invoiceNumber}" appears in multiple uploaded documents`,
-          documents: [seen[key], entry.fileName],
-          values: {
-            [seen[key]]: entry.invoiceNumber,
-            [entry.fileName]: entry.invoiceNumber,
-          },
-        });
-      } else {
-        seen[key] = entry.fileName;
-      }
-    }
   }
 
   const mismatchCount = flags.length;
@@ -175,16 +257,21 @@ export function runConsistencyCheck(documents) {
   return {
     status: mismatchCount > 0 ? "REVIEW" : "CONSISTENT",
     documentsAnalyzed: withExtraction.length,
-    totalDocuments: documents.length,
+    totalDocuments: allDocs.length,
     flags,
     summary: {
       documentsWithExtraction: withExtraction.length,
       comparableFieldsChecked: fieldsChecked,
       mismatchesFound: mismatchCount,
     },
+    evidenceComparison,
     message:
       mismatchCount > 0
-        ? `${mismatchCount} inconsistency${mismatchCount === 1 ? "" : "ies"} found across ${withExtraction.length} documents.`
-        : `All ${fieldsChecked} comparable field${fieldsChecked === 1 ? "" : "s"} match across ${withExtraction.length} documents.`,
+        ? `${mismatchCount} inconsistency${mismatchCount === 1 ? "" : "ies"} detected.`
+        : hasDocComparison && hasPhotoComparison
+          ? `All ${fieldsChecked} comparable document field${fieldsChecked === 1 ? "" : "s"} and ${evidenceComparison.photosCompared} photos appear consistent.`
+          : hasPhotoComparison
+            ? `Compared ${evidenceComparison.photosCompared} uploaded photos — no visual inconsistencies flagged.`
+            : `All ${fieldsChecked} comparable field${fieldsChecked === 1 ? "" : "s"} match across ${withExtraction.length} documents.`,
   };
 }
