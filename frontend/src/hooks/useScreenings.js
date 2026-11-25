@@ -155,6 +155,26 @@ function mergeChecks(existingChecks = {}, incomingChecks = {}) {
   return merged;
 }
 
+function mergeDocuments(existingDocs = [], incomingDocs = []) {
+  if (!incomingDocs.length) return existingDocs;
+  const existingByKey = new Map(
+    existingDocs
+      .map((d) => [d.s3Key || d.key || d.name, d])
+      .filter(([k]) => Boolean(k))
+  );
+  return incomingDocs.map((doc) => {
+    const key = doc.s3Key || doc.key || doc.name;
+    const prev = key ? existingByKey.get(key) : null;
+    return {
+      ...prev,
+      ...doc,
+      s3Key: doc.s3Key || doc.key || prev?.s3Key || "",
+      type: doc.type || doc.contentType || prev?.type || "",
+      extractedData: doc.extractedData ?? prev?.extractedData ?? null,
+    };
+  });
+}
+
 function mergeRecords(current, incoming) {
   const byId = new Map(current.map((record) => [record.id, record]));
   for (const record of incoming) {
@@ -175,7 +195,7 @@ function mergeRecords(current, incoming) {
           ...record.claim,
           claimantName: record.claim?.claimantName || existing.claim?.claimantName || "",
         },
-        documents: record.documents?.length ? record.documents : existing.documents,
+        documents: mergeDocuments(existing.documents, record.documents),
         checks: mergeChecks(existing.checks, record.checks),
       });
     }
@@ -420,7 +440,13 @@ export function useScreenings(userId, role) {
         }
         await refreshClaim(claimId);
         if (CHECK_ORDER.includes("consistency")) {
-          await runCheck(claimId, "consistency", claim, documents);
+          let latestDocs = documents;
+          setRecords((current) => {
+            const found = current.find((r) => r.id === claimId);
+            if (found?.documents?.length) latestDocs = found.documents;
+            return current;
+          });
+          await runCheck(claimId, "consistency", claim, latestDocs);
         }
       } catch (error) {
         PIPELINE_KEYS.forEach((key) =>
@@ -435,7 +461,7 @@ export function useScreenings(userId, role) {
         inflight.current.delete(token);
       }
     },
-    [patchCheck, refreshClaim, runCheck]
+    [patchCheck, refreshClaim, runCheck, setRecords]
   );
 
   const start = useCallback(
