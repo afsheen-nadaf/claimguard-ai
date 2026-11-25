@@ -87,7 +87,24 @@ export default function MetadataCard({ metadata, doc }) {
           ? [
               {
                 label: "GPS coordinates",
-                value: <code>{metadata.gpsCoordinates}</code>,
+                value: (
+                  <span className="inline-flex flex-wrap items-center gap-2">
+                    <code>{metadata.gpsCoordinates}</code>
+                    {metadata.latitude != null && metadata.longitude != null && (
+                      <a
+                        href={`https://www.google.com/maps?q=${encodeURIComponent(
+                          `${metadata.latitude},${metadata.longitude}`
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="link-button inline-flex items-center gap-1"
+                      >
+                        <span>View in map</span>
+                        <Icon name="externalLink" size={13} />
+                      </a>
+                    )}
+                  </span>
+                ),
               },
             ]
           : []),
