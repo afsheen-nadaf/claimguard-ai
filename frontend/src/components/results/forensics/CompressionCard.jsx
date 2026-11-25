@@ -17,7 +17,9 @@ export default function CompressionCard({ compression, doc }) {
           value: compression.isPng ? (
             <span className="muted">Not applicable (PNG format)</span>
           ) : compression.hasQuantizationTables ? (
-            `${compression.quantizationTableCount} table${compression.quantizationTableCount === 1 ? "" : "s"}`
+            `${compression.quantizationTableCount} table${
+              compression.quantizationTableCount === 1 ? "" : "s"
+            }`
           ) : (
             "Not available in bitstream"
           ),
@@ -26,30 +28,17 @@ export default function CompressionCard({ compression, doc }) {
           ? [
               {
                 label: "Coefficient count",
-                value: compression.coefficientCount ? `${compression.coefficientCount} coefficients / table` : "—",
+                value: compression.coefficientCount
+                  ? `${compression.coefficientCount} coefficients / table`
+                  : "—",
               },
-              {
-                label: "Minimum coefficient",
-                value: compression.minCoefficient ?? "—",
-              },
-              {
-                label: "Maximum coefficient",
-                value: compression.maxCoefficient ?? "—",
-              },
-              {
-                label: "Mean coefficient",
-                value: compression.meanCoefficient ?? "—",
-              },
+              { label: "Minimum coefficient", value: compression.minCoefficient ?? "—" },
+              { label: "Maximum coefficient", value: compression.maxCoefficient ?? "—" },
+              { label: "Mean coefficient", value: compression.meanCoefficient ?? "—" },
             ]
           : []),
-        {
-          label: "Encoding process",
-          value: compression.encodingProcess || "Not available",
-        },
-        {
-          label: "YCbCr subsampling",
-          value: compression.ycbcrSubsampling || "Not available",
-        },
+        { label: "Encoding process", value: compression.encodingProcess || "Not available" },
+        { label: "YCbCr subsampling", value: compression.ycbcrSubsampling || "Not available" },
         {
           label: "Bits per sample",
           value:
@@ -57,14 +46,9 @@ export default function CompressionCard({ compression, doc }) {
               ? `${compression.bitsPerSample} bits/channel`
               : "Not available",
         },
-        {
-          label: "ExifTool compression status",
-          value: (
-            <span className={`badge ${compression.exiftoolStatus === "AVAILABLE" ? "badge-success" : "badge-neutral"}`}>
-              {compression.exiftoolStatus === "AVAILABLE" ? "Available" : "Not installed in runtime"}
-            </span>
-          ),
-        },
+        ...(compression.reencodingCue
+          ? [{ label: "Compression cue", value: compression.reencodingCue }]
+          : []),
       ]
     : [];
 
@@ -89,11 +73,7 @@ export default function CompressionCard({ compression, doc }) {
           <StatusBadge
             state={isError ? "error" : isAvailable ? "pass" : "idle"}
             label={
-              isError
-                ? "Analyzer error"
-                : isAvailable
-                ? "Completed"
-                : "Awaiting analysis"
+              isError ? "Analyzer error" : isAvailable ? "Completed" : "Awaiting analysis"
             }
           />
           {isAvailable && (
@@ -104,7 +84,11 @@ export default function CompressionCard({ compression, doc }) {
               aria-label={expanded ? "Collapse compression details" : "Expand compression details"}
               title={expanded ? "Collapse details" : "Expand details"}
             >
-              <Icon name="chevron" size={16} className={expanded ? "chevron-open" : "chevron-closed"} />
+              <Icon
+                name="chevron"
+                size={16}
+                className={expanded ? "chevron-open" : "chevron-closed"}
+              />
             </button>
           )}
         </div>
@@ -128,9 +112,7 @@ export default function CompressionCard({ compression, doc }) {
           {compression.isPng ? (
             <Callout tone="info" icon="info">
               <strong>PNG format notice</strong>
-              <p>
-                JPEG-specific compression tables are not applicable to this image format.
-              </p>
+              <p>JPEG-specific compression tables are not applicable to this image format.</p>
               <p className="muted small">
                 PNG uses lossless DEFLATE compression rather than lossy discrete cosine transform (DCT) quantization matrices. This is normal and expected for PNG files.
               </p>
@@ -174,7 +156,9 @@ export default function CompressionCard({ compression, doc }) {
                     />
                     <div className="finding-content">
                       <div className="finding-header">
-                        <strong><code>{f.code}</code></strong>
+                        <strong>
+                          <code>{f.code}</code>
+                        </strong>
                         {f.severity && (
                           <span
                             className={`badge badge-sm badge-${
@@ -216,7 +200,9 @@ export default function CompressionCard({ compression, doc }) {
                   <tbody>
                     {rawTables.map(([id, t]) => (
                       <tr key={id}>
-                        <td><code>Table {id}</code></td>
+                        <td>
+                          <code>Table {id}</code>
+                        </td>
                         <td>{t.coefficient_count || 64}</td>
                         <td>{t.minimum}</td>
                         <td>{t.maximum}</td>
@@ -233,9 +219,7 @@ export default function CompressionCard({ compression, doc }) {
         <div className="forensics-body">
           <Callout tone="info" icon="info">
             <strong>Analysis not available</strong>
-            <p>
-              Compression analysis has not completed for this file.
-            </p>
+            <p>Compression analysis has not completed for this file.</p>
             {doc?.name && (
               <p>
                 Document: <strong>{doc.name}</strong>

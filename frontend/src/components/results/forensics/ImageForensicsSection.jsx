@@ -3,6 +3,7 @@ import Icon from "../../Icon";
 import { Callout, Card, Spinner, StatusBadge } from "../../ui";
 import { formatBytes } from "../../../lib/format.js";
 import {
+  buildForensicTakeaways,
   extractForensicsOverview,
   normalizeAiGeneration,
   normalizeCompression,
@@ -77,11 +78,25 @@ export default function ImageForensicsSection({ record, check, onRetry }) {
     null;
   const rawReviewEntry = activeImage?.review || null;
 
+  const incidentDate =
+    record?.incidentDate ||
+    record?.claim?.incidentDate ||
+    record?.raw?.incidentDate ||
+    null;
+
   const aiGeneration = normalizeAiGeneration(rawAiEntry, activeDoc);
-  const metadata = normalizeMetadata(rawMetaEntry, activeDoc);
+  const metadata = normalizeMetadata(rawMetaEntry, activeDoc, incidentDate);
   const compression = normalizeCompression(rawCompEntry, activeDoc);
   const quality = normalizeQuality(rawQualEntry, activeDoc);
   const review = normalizeReview(rawReviewEntry);
+  const takeaways = buildForensicTakeaways({
+    overview,
+    aiGeneration,
+    metadata,
+    compression,
+    quality,
+    review,
+  });
 
   const isRunning =
     check?.status === "running" || overview.analysisState === "running";
@@ -259,6 +274,21 @@ export default function ImageForensicsSection({ record, check, onRetry }) {
           </div>
         </div>
 
+        {/* Concise Forensic Takeaways */}
+        {takeaways.length > 0 && !isRunning && !isError && (
+          <div className="forensics-pipeline-note mt">
+            <Icon name="info" size={16} />
+            <div>
+              <strong>Forensic Takeaways</strong>
+              <ul className="muted small mt-xs">
+                {takeaways.map((tip, idx) => (
+                  <li key={idx}>{tip}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
+
         {/* Running state notice */}
         {isRunning && (
           <div className="forensics-pipeline-note note-skipped">
@@ -416,10 +446,10 @@ export default function ImageForensicsSection({ record, check, onRetry }) {
               />
             </div>
             <div className="review-rec-title-wrap">
-              <div className="eyebrow" style={{ color: '#f5f0e8' }}>
+              <div className="eyebrow" style={{ color: "#f5f0e8" }}>
                 {review.required ? "ANALYST ACTION REQUIRED" : "ANALYST RECOMMENDATION"}
               </div>
-              <h3 className="review-rec-title" style={{ color: '#f5f0e8' }}>
+              <h3 className="review-rec-title" style={{ color: "#f5f0e8" }}>
                 {review.required
                   ? "Human Review Recommended"
                   : "No review flags detected"}

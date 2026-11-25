@@ -7,7 +7,9 @@ export default function MetadataCard({ metadata, doc }) {
   const [expanded, setExpanded] = useState(true);
 
   const isError = metadata?.status === "ERROR";
-  const isAvailable = Boolean(metadata && !isError && (metadata.sha256 || metadata.imageFormat || metadata.width));
+  const isAvailable = Boolean(
+    metadata && !isError && (metadata.sha256 || metadata.imageFormat || metadata.width)
+  );
 
   async function copyHash(hash) {
     try {
@@ -32,6 +34,9 @@ export default function MetadataCard({ metadata, doc }) {
               : "Not available",
         },
         { label: "Megapixels", value: metadata.megapixels || "Not available" },
+        ...(metadata.orientationLabel
+          ? [{ label: "Orientation", value: metadata.orientationLabel }]
+          : []),
         {
           label: "SHA-256 fingerprint",
           value: metadata.sha256 ? (
@@ -78,16 +83,26 @@ export default function MetadataCard({ metadata, doc }) {
             </span>
           ),
         },
+        ...(metadata.gpsCoordinates
+          ? [
+              {
+                label: "GPS coordinates",
+                value: <code>{metadata.gpsCoordinates}</code>,
+              },
+            ]
+          : []),
         {
           label: "Software metadata",
           value: metadata.software || "Not detected",
         },
         {
-          label: "ExifTool availability",
-          value: (
-            <span className={`badge ${metadata.exiftoolStatus === "AVAILABLE" ? "badge-success" : "badge-neutral"}`}>
-              {metadata.exiftoolStatus === "AVAILABLE" ? "Available" : "Not installed in runtime"}
+          label: "Editing software indicator",
+          value: metadata.editingSoftwareDetected ? (
+            <span className="badge badge-warning">
+              {metadata.matchedEditor ? `Editor (${metadata.matchedEditor})` : "Editor tag detected"}
             </span>
+          ) : (
+            <span className="badge badge-neutral">Not detected</span>
           ),
         },
       ]
@@ -95,7 +110,6 @@ export default function MetadataCard({ metadata, doc }) {
 
   const findings = metadata?.findings || [];
   const exifEntries = Object.entries(metadata?.exifMetadata || {});
-  const exifToolEntries = Object.entries(metadata?.exifToolMetadata || {});
 
   return (
     <div className="card forensics-card">
@@ -106,18 +120,14 @@ export default function MetadataCard({ metadata, doc }) {
         <div className="card-title-wrap">
           <h3 className="card-title">2. Metadata &amp; EXIF Analysis</h3>
           <p className="card-description">
-            Container headers, device telemetry (Make/Model), timestamps, and cryptographic fingerprints (<code>metadata_analyzer.py</code>).
+            Container headers, device telemetry, GPS coordinates, software tags, and SHA-256 hash (<code>metadata_analyzer.py</code>).
           </p>
         </div>
         <div className="card-header-actions">
           <StatusBadge
             state={isError ? "error" : isAvailable ? "pass" : "idle"}
             label={
-              isError
-                ? "Analyzer error"
-                : isAvailable
-                ? "Completed"
-                : "Awaiting analysis"
+              isError ? "Analyzer error" : isAvailable ? "Completed" : "Awaiting analysis"
             }
           />
           {isAvailable && (
@@ -128,7 +138,11 @@ export default function MetadataCard({ metadata, doc }) {
               aria-label={expanded ? "Collapse metadata details" : "Expand metadata details"}
               title={expanded ? "Collapse details" : "Expand details"}
             >
-              <Icon name="chevron" size={16} className={expanded ? "chevron-open" : "chevron-closed"} />
+              <Icon
+                name="chevron"
+                size={16}
+                className={expanded ? "chevron-open" : "chevron-closed"}
+              />
             </button>
           )}
         </div>
@@ -149,19 +163,16 @@ export default function MetadataCard({ metadata, doc }) {
           <div className="mini-label">File &amp; Device Telemetry</div>
           <KeyValueList items={items} />
 
-          {metadata.exiftoolWarning && (
+          {metadata.timestampNote && (
             <Callout tone="info" icon="info">
-              <strong>ExifTool runtime notice</strong>
-              <p>{metadata.exiftoolWarning}</p>
-              <p className="muted small">
-                Pillow metadata was extracted successfully. Missing ExifTool does not prevent metadata analysis.
-              </p>
+              <strong>Incident date context</strong>
+              <p>{metadata.timestampNote}</p>
             </Callout>
           )}
 
           {findings.length > 0 && (
             <div className="mt">
-              <div className="mini-label">Metadata Findings ({findings.length})</div>
+              <div className="mini-label">Metadata Notes ({findings.length})</div>
               <ul className="forensics-findings-list">
                 {findings.map((f, i) => (
                   <li
@@ -186,7 +197,9 @@ export default function MetadataCard({ metadata, doc }) {
                     />
                     <div className="finding-content">
                       <div className="finding-header">
-                        <strong><code>{f.code}</code></strong>
+                        <strong>
+                          <code>{f.code}</code>
+                        </strong>
                         {f.severity && (
                           <span
                             className={`badge badge-sm badge-${
@@ -209,69 +222,39 @@ export default function MetadataCard({ metadata, doc }) {
             </div>
           )}
 
-          {expanded && (
-            <>
-              {exifEntries.length > 0 && (
-                <details className="raw-details mt">
-                  <summary>
-                    <Icon name="chevron" size={15} /> Pillow EXIF metadata tags ({exifEntries.length})
-                  </summary>
-                  <div className="table-wrap mt">
-                    <table className="data-table">
-                      <thead>
-                        <tr>
-                          <th>Tag</th>
-                          <th>Value</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {exifEntries.map(([k, v]) => (
-                          <tr key={k}>
-                            <td><code>{k}</code></td>
-                            <td>{typeof v === "object" ? JSON.stringify(v) : String(v)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </details>
-              )}
-
-              {exifToolEntries.length > 0 && (
-                <details className="raw-details mt">
-                  <summary>
-                    <Icon name="chevron" size={15} /> ExifTool extended properties ({exifToolEntries.length})
-                  </summary>
-                  <div className="table-wrap mt">
-                    <table className="data-table">
-                      <thead>
-                        <tr>
-                          <th>Property</th>
-                          <th>Value</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {exifToolEntries.map(([k, v]) => (
-                          <tr key={k}>
-                            <td><code>{k}</code></td>
-                            <td>{typeof v === "object" ? JSON.stringify(v) : String(v)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </details>
-              )}
-            </>
+          {expanded && exifEntries.length > 0 && (
+            <details className="raw-details mt">
+              <summary>
+                <Icon name="chevron" size={15} /> EXIF metadata tags ({exifEntries.length})
+              </summary>
+              <div className="table-wrap mt">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Tag</th>
+                      <th>Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {exifEntries.map(([k, v]) => (
+                      <tr key={k}>
+                        <td>
+                          <code>{k}</code>
+                        </td>
+                        <td>{typeof v === "object" ? JSON.stringify(v) : String(v)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
           )}
         </div>
       ) : (
         <div className="forensics-body">
           <Callout tone="info" icon="info">
             <strong>Analysis not available</strong>
-            <p>
-              Metadata and EXIF analysis has not completed for this file.
-            </p>
+            <p>Metadata and EXIF analysis has not completed for this file.</p>
             {doc?.name && (
               <p>
                 Document: <strong>{doc.name}</strong>
@@ -282,7 +265,7 @@ export default function MetadataCard({ metadata, doc }) {
       )}
 
       <p className="muted small forensics-disclaimer">
-        Missing metadata is shown as &ldquo;Not available&rdquo; or &ldquo;Not detected&rdquo; and is not treated as proof of tampering. Mobile platforms and messaging apps regularly strip metadata headers upon upload.
+        Missing metadata is shown as &ldquo;Not available&rdquo; or &ldquo;Not detected&rdquo; and is not treated as proof of tampering. Mobile platforms and messaging apps regularly strip or alter metadata headers upon upload.
       </p>
     </div>
   );

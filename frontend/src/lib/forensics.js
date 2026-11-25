@@ -4,6 +4,21 @@
 
 import { formatBytes } from "./format.js";
 
+const EDITOR_KEYWORDS = [
+  "snapseed",
+  "photoshop",
+  "lightroom",
+  "gimp",
+  "canva",
+  "picsart",
+  "remini",
+  "facetune",
+  "vsco",
+  "polarr",
+  "affinity",
+  "pixlr",
+];
+
 export const FINDING_DESCRIPTIONS = {
   // Metadata findings
   EXIF_NOT_PRESENT:
@@ -13,7 +28,7 @@ export const FINDING_DESCRIPTIONS = {
   CAPTURE_TIME_UNAVAILABLE:
     "Original capture timestamp is unavailable in the image header. File timestamps reflect system upload or transfer times.",
   SOFTWARE_EDIT_DETECTED:
-    "Software metadata tag indicates image editing or export software. Common when photos are resized or saved via mobile photo managers.",
+    "Software metadata tag indicates image editing or export software (such as Snapseed or a photo editor). Always corroborate with incident context.",
   GPS_NOT_PRESENT:
     "No geographic coordinates found. Location tags are frequently disabled by mobile privacy settings or stripped upon upload.",
 
@@ -28,12 +43,6 @@ export const FINDING_DESCRIPTIONS = {
     "Chroma subsampling differs from standard camera baseline. Mobile messaging apps often re-encode images to save bandwidth.",
   HIGH_COMPRESSION:
     "High quantization coefficients indicate aggressive JPEG compression, reducing high-frequency image detail.",
-  EXIFTOOL_UNAVAILABLE:
-    "ExifTool is not installed in this runtime environment; standard image metadata was used.",
-  EXIFTOOL_COMPRESSION_DATA_EXTRACTED:
-    "JPEG encoding properties were extracted using ExifTool.",
-  EXIFTOOL_ERROR:
-    "ExifTool encountered an error during bitstream inspection.",
 
   // Image quality findings
   LOW_RESOLUTION:
@@ -48,7 +57,6 @@ export const FINDING_DESCRIPTIONS = {
     "The image has relatively low luminance contrast (<25 std dev), indicating flat lighting or haze.",
 };
 
-// Derive summary metrics and statuses from the record and API forensics check
 export function extractForensicsOverview(record) {
   const documents = record?.documents || [];
   const imageDocs = documents.filter((d) => {
@@ -64,22 +72,13 @@ export function extractForensicsOverview(record) {
     record?.forensics ||
     null;
 
-  const imagesSubmitted =
-    rawForensics?.imagesSubmitted ?? imageDocs.length;
-
-  const imagesList = Array.isArray(rawForensics?.images)
-    ? rawForensics.images
-    : [];
-
-  const imagesAnalyzed =
-    rawForensics?.analysesCompleted != null
-      ? imagesList.length
-      : imagesList.length;
+  const imagesSubmitted = rawForensics?.imagesSubmitted ?? imageDocs.length;
+  const imagesList = Array.isArray(rawForensics?.images) ? rawForensics.images : [];
+  const imagesAnalyzed = imagesList.length;
 
   const flaggedImages = imagesList.filter((img) => img.review?.required === true);
   const hasReviewRequired = flaggedImages.length > 0;
 
-  // Determine overall analysis state
   let analysisState = "idle";
   let analysisStateLabel = "Not started";
 
@@ -106,13 +105,11 @@ export function extractForensicsOverview(record) {
     analysisStateLabel = hasReviewRequired ? "Review recommended" : "Completed";
   }
 
-  // Module statuses across analyzed images
   const getModuleStatus = (key) => {
     if (analysisState === "running") return "Analyzing…";
     if (analysisState === "error" && !imagesList.length) return "Failed";
     if (rawForensics?.skipped || imagesSubmitted === 0) return "Not applicable";
-    if (!rawForensics) return "Not available";
-    if (!imagesList.length) return "Not available";
+    if (!rawForensics || !imagesList.length) return "Not available";
 
     const statuses = imagesList.map((img) => img.analyses?.[key]?.status);
     if (statuses.every((s) => s === "COMPLETED")) return "Completed";
@@ -126,15 +123,11 @@ export function extractForensicsOverview(record) {
   const compressionStatus = getModuleStatus("compression");
   const qualityStatus = getModuleStatus("imageQuality");
 
-  // Duplicate detection status derived from duplicate check
   const duplicateCheck = record?.checks?.duplicate;
   let duplicateStatus = "Pending";
-
-  if (duplicateCheck?.status === "running") {
-    duplicateStatus = "Running";
-  } else if (duplicateCheck?.status === "error") {
-    duplicateStatus = "Check failed";
-  } else if (duplicateCheck?.status === "done") {
+  if (duplicateCheck?.status === "running") duplicateStatus = "Running";
+  else if (duplicateCheck?.status === "error") duplicateStatus = "Check failed";
+  else if (duplicateCheck?.status === "done") {
     const imgMatches = duplicateCheck.result?.imageMatches || [];
     if (imgMatches.length > 0) {
       duplicateStatus = `Review required (${imgMatches.length} visual match${
@@ -172,12 +165,19 @@ export function extractForensicsOverview(record) {
   };
 }
 
-// Normalize Metadata analyzer output (metadata_analyzer.py)
-export function normalizeMetadata(rawInput, doc) {
+function detectEditorFromSoftware(software) {
+  if (!software) return null;
+  const lower = String(software).toLowerCase();
+  const match = EDITOR_KEYWORDS.find((kw) => new RegExp(`\\b${kw}\\b`, "i").test(lower));
+  return match ? match.charAt(0).toUpperCase() + match.slice(1) : null;
+}
+
+export function normalizeMetadata(rawInput, doc, incidentDate = null) {
   if (!rawInput && !doc) return null;
 
   const raw = rawInput?.result || rawInput || {};
-  const status = rawInput?.status || (raw.file_name || raw.sha256 ? "COMPLETED" : "UNAVAILABLE");
+  const status =
+    rawInput?.status || (raw.file_name || raw.sha256 ? "COMPLETED" : "UNAVAILABLE");
   const error = rawInput?.error || null;
 
   const fileName = raw.file_name || raw.fileName || doc?.name || "Uploaded image";
@@ -201,56 +201,62 @@ export function normalizeMetadata(rawInput, doc) {
       : "—";
 
   const pillowExif = raw.pillow_exif_metadata || raw.exif || {};
-  const exiftoolMeta = raw.exiftool_metadata || raw.exifTool || {};
   const indicators = raw.metadata_indicators || {};
+  const exifPresent = indicators.exif_present ?? Object.keys(pillowExif).length > 0;
 
-  const exifPresent =
-    indicators.exif_present ??
-    (Object.keys(pillowExif).length > 0 || Object.keys(exiftoolMeta).length > 0);
-
-  const cameraMake =
-    pillowExif.Make ||
-    exiftoolMeta["EXIF:Make"] ||
-    exiftoolMeta.Make ||
-    raw.cameraMake ||
-    null;
-
-  const cameraModel =
-    pillowExif.Model ||
-    exiftoolMeta["EXIF:Model"] ||
-    exiftoolMeta.Model ||
-    raw.cameraModel ||
-    null;
-
+  const cameraMake = pillowExif.Make || raw.cameraMake || null;
+  const cameraModel = pillowExif.Model || raw.cameraModel || null;
   const captureTimestamp =
-    pillowExif.DateTimeOriginal ||
-    pillowExif.DateTime ||
-    exiftoolMeta["EXIF:DateTimeOriginal"] ||
-    exiftoolMeta.DateTimeOriginal ||
-    raw.captureTimestamp ||
-    null;
+    pillowExif.DateTimeOriginal || pillowExif.DateTime || raw.captureTimestamp || null;
+  const software = pillowExif.Software || raw.software || null;
 
-  const software =
-    pillowExif.Software ||
-    exiftoolMeta["EXIF:Software"] ||
-    exiftoolMeta.Software ||
-    raw.software ||
-    null;
+  const matchedEditor =
+    raw.matched_editor || detectEditorFromSoftware(software) || null;
+  const editingSoftwareDetected = Boolean(
+    raw.editing_software_detected ??
+      indicators.editing_software_detected ??
+      matchedEditor
+  );
 
-  const hasGps = indicators.gps_metadata_present ?? (raw.hasGps || false);
+  const orientationLabel =
+    props.orientation_label ||
+    (pillowExif.Orientation ? `EXIF Orientation ${pillowExif.Orientation}` : null);
 
-  const exiftoolStatus = raw.exiftool_status || (Object.keys(exiftoolMeta).length > 0 ? "AVAILABLE" : "UNAVAILABLE");
-  const exiftoolWarning = raw.exiftool_warning || null;
+  const hasGps = indicators.gps_metadata_present ?? Boolean(raw.gps_metadata_present || raw.hasGps);
+  const gpsCoordinates =
+    raw.gps_coordinates_formatted ||
+    (raw.gps_latitude != null && raw.gps_longitude != null
+      ? `${raw.gps_latitude}, ${raw.gps_longitude}`
+      : null);
 
-  // Format raw findings (can be objects or strings)
+  let timestampNote = null;
+  if (captureTimestamp && incidentDate) {
+    const capDateStr = String(captureTimestamp).slice(0, 10).replace(/:/g, "-");
+    const incDateStr = String(incidentDate).slice(0, 10);
+    if (capDateStr && incDateStr && /^\d{4}-\d{2}-\d{2}$/.test(capDateStr)) {
+      if (capDateStr > incDateStr) {
+        timestampNote = `Capture date (${capDateStr}) is after reported incident date (${incDateStr}).`;
+      } else if (capDateStr === incDateStr) {
+        timestampNote = `Capture date matches reported incident date (${incDateStr}).`;
+      } else {
+        timestampNote = `Capture date (${capDateStr}) is earlier than reported incident date (${incDateStr}).`;
+      }
+    }
+  }
+
   const rawFindings = Array.isArray(raw.findings)
     ? raw.findings
     : Array.isArray(raw.warnings)
     ? raw.warnings
     : [];
+
   const findings = rawFindings.map((f) => {
     if (typeof f === "string") {
-      return { code: f, severity: "informational", message: FINDING_DESCRIPTIONS[f] || f };
+      return {
+        code: f,
+        severity: "informational",
+        message: FINDING_DESCRIPTIONS[f] || f,
+      };
     }
     return {
       code: f.code || "METADATA_FINDING",
@@ -258,7 +264,16 @@ export function normalizeMetadata(rawInput, doc) {
       message: f.message || FINDING_DESCRIPTIONS[f.code] || f.code,
     };
   });
-  const warnings = findings.map((f) => f.code);
+
+  if (editingSoftwareDetected && !findings.some((f) => f.code === "SOFTWARE_EDIT_DETECTED")) {
+    findings.push({
+      code: "SOFTWARE_EDIT_DETECTED",
+      severity: "informational",
+      message: matchedEditor
+        ? `Editing/export tool "${matchedEditor}" detected in Software tag (${software}).`
+        : FINDING_DESCRIPTIONS.SOFTWARE_EDIT_DETECTED,
+    });
+  }
 
   return {
     status,
@@ -271,40 +286,43 @@ export function normalizeMetadata(rawInput, doc) {
     width,
     height,
     megapixels,
+    orientationLabel,
     exifPresent,
     exifAvailability: exifPresent ? "Detected" : "Not detected",
     cameraMake: cameraMake || "Not available",
     cameraModel: cameraModel || "Not available",
     captureTimestamp: captureTimestamp || "Not available",
+    timestampNote,
     software: software || "Not detected",
+    editingSoftwareDetected,
+    matchedEditor,
     hasGps,
+    gpsCoordinates,
     gpsAvailability: hasGps ? "Present" : "Not detected",
-    exiftoolStatus,
-    exiftoolWarning,
     exifMetadata: pillowExif,
-    exifToolMetadata: exiftoolMeta,
     findings,
-    warnings,
+    warnings: findings.map((f) => f.code),
   };
 }
 
-// Normalize JPEG Compression analyzer output (compression_analyzer.py)
 export function normalizeCompression(rawInput, doc) {
   if (!rawInput && !doc) return null;
 
   const raw = rawInput?.result || rawInput || {};
-  const status = rawInput?.status || (raw.image_format || raw.imageFormat ? "COMPLETED" : "UNAVAILABLE");
+  const status =
+    rawInput?.status || (raw.image_format || raw.imageFormat ? "COMPLETED" : "UNAVAILABLE");
   const error = rawInput?.error || null;
 
   const imageFormat = (raw.image_format || raw.imageFormat || "JPEG").toUpperCase();
   const isPng = imageFormat === "PNG" || /\.png$/i.test(raw.file_name || doc?.name || "");
 
   const compAnalysis = raw.compression_analysis || {};
-  const quantizationTableCount = compAnalysis.quantization_table_count ?? raw.quantizationTableCount ?? null;
+  const quantizationTableCount =
+    compAnalysis.quantization_table_count ?? raw.quantizationTableCount ?? null;
   const quantizationTables = compAnalysis.quantization_tables || null;
 
-  // Compute table statistics
-  let coefficientCount = raw.quantizationTableCoefficients ?? raw.quantizationTableCoefficientCount ?? null;
+  let coefficientCount =
+    raw.quantizationTableCoefficients ?? raw.quantizationTableCoefficientCount ?? null;
   let minCoefficient = raw.minCoefficient ?? null;
   let maxCoefficient = raw.maxCoefficient ?? null;
   let meanCoefficient =
@@ -323,25 +341,40 @@ export function normalizeCompression(rawInput, doc) {
       const means = tableList.map((t) => t.mean).filter((v) => v != null);
       if (mins.length) minCoefficient = Math.min(...mins);
       if (maxs.length) maxCoefficient = Math.max(...maxs);
-      if (means.length) meanCoefficient = (means.reduce((a, b) => a + b, 0) / means.length).toFixed(2);
+      if (means.length)
+        meanCoefficient = (means.reduce((a, b) => a + b, 0) / means.length).toFixed(2);
     }
   }
 
-  const exiftoolComp = raw.exiftool_compression_metadata || {};
-  const encodingProcess = exiftoolComp.EncodingProcess || raw.encodingProcess || null;
-  const ycbcrSubsampling = exiftoolComp.YCbCrSubSampling || raw.ycbcrSubsampling || null;
-  const bitsPerSample = exiftoolComp.BitsPerSample || raw.bitsPerSample || null;
-  const fileType = exiftoolComp.FileType || raw.fileType || imageFormat;
-  const exiftoolStatus = raw.exiftool_status || (Object.keys(exiftoolComp).length > 0 ? "AVAILABLE" : "UNAVAILABLE");
+  const encodingProcess =
+    raw.encoding_process ||
+    raw.encodingProcess ||
+    (isPng ? "Deflate / zlib compression" : null);
+  const ycbcrSubsampling = raw.ycbcr_subsampling || raw.ycbcrSubsampling || null;
+  const bitsPerSample = raw.bits_per_sample ?? raw.bitsPerSample ?? null;
+  const fileType = raw.file_type || raw.fileType || imageFormat;
+
+  const reencodingCue = isPng
+    ? "Lossless PNG container (DEFLATE); check whether screenshot/export vs. original camera capture."
+    : !quantizationTableCount
+    ? "No JPEG quantization tables in bitstream; common after re-encoding or progressive/web export."
+    : ycbcrSubsampling && !String(ycbcrSubsampling).includes("4:2:0")
+    ? `Chroma subsampling (${ycbcrSubsampling}) differs from typical mobile 4:2:0 capture.`
+    : "Standard JPEG quantization & chroma layout observed.";
 
   const rawFindings = Array.isArray(raw.findings)
     ? raw.findings
     : Array.isArray(raw.warnings)
     ? raw.warnings
     : [];
+
   const findings = rawFindings.map((f) => {
     if (typeof f === "string") {
-      return { code: f, severity: "informational", message: FINDING_DESCRIPTIONS[f] || f };
+      return {
+        code: f,
+        severity: "informational",
+        message: FINDING_DESCRIPTIONS[f] || f,
+      };
     }
     return {
       code: f.code || "COMPRESSION_FINDING",
@@ -349,7 +382,6 @@ export function normalizeCompression(rawInput, doc) {
       message: f.message || FINDING_DESCRIPTIONS[f.code] || f.code,
     };
   });
-  const warnings = findings.map((f) => f.code);
 
   return {
     status,
@@ -367,19 +399,19 @@ export function normalizeCompression(rawInput, doc) {
     ycbcrSubsampling,
     bitsPerSample,
     fileType,
-    exiftoolStatus,
-    exiftoolCompression: exiftoolComp,
+    reencodingCue,
     findings,
-    warnings,
+    warnings: findings.map((f) => f.code),
   };
 }
 
-// Normalize OpenCV Image Quality analyzer output (quality_analyzer.py)
 export function normalizeQuality(rawInput, doc) {
   if (!rawInput && !doc) return null;
 
   const raw = rawInput?.result || rawInput || {};
-  const status = rawInput?.status || (raw.image_quality || raw.blurScore != null ? "COMPLETED" : "UNAVAILABLE");
+  const status =
+    rawInput?.status ||
+    (raw.image_quality || raw.blurScore != null ? "COMPLETED" : "UNAVAILABLE");
   const error = rawInput?.error || null;
 
   const imgQuality = raw.image_quality || {};
@@ -412,9 +444,14 @@ export function normalizeQuality(rawInput, doc) {
     : Array.isArray(raw.warnings)
     ? raw.warnings
     : [];
+
   const findings = rawFindings.map((f) => {
     if (typeof f === "string") {
-      return { code: f, severity: "informational", message: FINDING_DESCRIPTIONS[f] || f };
+      return {
+        code: f,
+        severity: "informational",
+        message: FINDING_DESCRIPTIONS[f] || f,
+      };
     }
     return {
       code: f.code || "QUALITY_OBSERVATION",
@@ -422,7 +459,6 @@ export function normalizeQuality(rawInput, doc) {
       message: f.message || FINDING_DESCRIPTIONS[f.code] || f.code,
     };
   });
-  const warnings = findings.map((f) => f.code);
 
   return {
     status,
@@ -434,11 +470,10 @@ export function normalizeQuality(rawInput, doc) {
     contrastScore: contrastScore != null ? Number(contrastScore) : null,
     noiseEstimate: noiseEstimate != null ? Number(noiseEstimate) : null,
     findings,
-    warnings,
+    warnings: findings.map((f) => f.code),
   };
 }
 
-// Normalize Hugging Face Smaug AI-generation detection output
 export function normalizeAiGeneration(rawInput, doc) {
   if (!rawInput && !doc) return null;
 
@@ -453,7 +488,9 @@ export function normalizeAiGeneration(rawInput, doc) {
 
   const model = raw.model || "abacusai/Smaug-AI-Image-Detector";
   const score =
-    isCompleted && typeof raw.aiGeneratedScore === "number" && Number.isFinite(raw.aiGeneratedScore)
+    isCompleted &&
+    typeof raw.aiGeneratedScore === "number" &&
+    Number.isFinite(raw.aiGeneratedScore)
       ? raw.aiGeneratedScore
       : null;
 
@@ -488,7 +525,6 @@ export function normalizeAiGeneration(rawInput, doc) {
   };
 }
 
-// Normalize analyst review recommendation output (review_engine.py)
 export function normalizeReview(rawReview) {
   if (!rawReview) {
     return {
@@ -518,4 +554,37 @@ export function normalizeReview(rawReview) {
             "No flags detected does not establish image authenticity.",
           ],
   };
+}
+
+export function buildForensicTakeaways({ overview, aiGeneration, metadata, compression, quality, review }) {
+  if (overview?.isSkipped) {
+    return [
+      "Image forensics was skipped because no JPG, JPEG, or PNG photos were attached to the claim.",
+    ];
+  }
+
+  const bullets = [];
+  if (aiGeneration?.isCompleted && aiGeneration.percentage != null) {
+    bullets.push(
+      `Smaug AI score: ${aiGeneration.percentage}% (${aiGeneration.interpretation.toLowerCase()}).`
+    );
+  }
+  if (metadata) {
+    const gpsPart = metadata.gpsCoordinates
+      ? `GPS: ${metadata.gpsCoordinates}`
+      : `GPS: ${metadata.gpsAvailability}`;
+    const editPart = metadata.editingSoftwareDetected
+      ? `Editor tag: ${metadata.matchedEditor || metadata.software}`
+      : "No editor tag detected";
+    bullets.push(`Metadata: ${gpsPart} • ${editPart}.`);
+  }
+  if (compression?.imageFormat) {
+    bullets.push(`Compression: ${compression.reencodingCue}`);
+  }
+  if (review?.required) {
+    bullets.push(`Action: Human review recommended (${review.reasons.length} flag${review.reasons.length === 1 ? "" : "s"}).`);
+  } else if (quality?.status === "COMPLETED") {
+    bullets.push("Action: No automated threshold flags triggered; verify with incident records.");
+  }
+  return bullets.slice(0, 4);
 }

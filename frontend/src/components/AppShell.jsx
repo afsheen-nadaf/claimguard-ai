@@ -4,7 +4,7 @@ import { REGION } from "../api/config";
 
 const ADJUSTER_NAV = [
   { id: "overview", href: "#/", label: "OVERVIEW", icon: "grid" },
-  { id: "history", href: "#/history", label: "CLAIMSY", icon: "history" },
+  { id: "history", href: "#/history", label: "CLAIMS", icon: "history" },
   { id: "analytics", href: "#/analytics", label: "ANALYTICS", icon: "chart" },
 ];
 
