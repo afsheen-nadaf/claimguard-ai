@@ -241,14 +241,6 @@ export default function ResultsPage({ record, onRetry, navigate }) {
                 <Icon name="arrowLeft" size={16} />
                 <span className="hidden sm:inline">Back to Queue</span>
               </button>
-              <button
-                type="button"
-                className="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-xl font-semibold hover:from-purple-500 hover:to-purple-600 transition-all shadow-lg shadow-purple-900/30 flex items-center gap-2"
-                onClick={() => navigate("/new")}
-              >
-                <Icon name="filePlus" size={16} />
-                <span className="hidden sm:inline">New Claim</span>
-              </button>
             </div>
           </div>
         </div>
